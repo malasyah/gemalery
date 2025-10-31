@@ -60,3 +60,19 @@ Deploy setup:
 - Added `infra/DEPLOY.md` with Neon + Railway + Vercel guide
 - Updated web to read `VITE_API_BASE` for API URL
 
+Repository:
+- Initialized git and pushed to GitHub: https://github.com/malasyah/gemalery.git
+
+Purchases & Costs:
+- Suppliers CRUD: `GET/POST/PATCH/DELETE /suppliers`
+- Purchase Orders: `POST /purchase-orders`, `POST /purchase-orders/:id/items`, `POST /purchase-orders/:id/receive`, `GET /purchase-orders`, `GET /purchase-orders/:id`
+- Receiving updates stock (IN) and recalculates weighted-average `cogs_current`
+- Operational cost templates: `POST/GET /cost-templates`, `POST /cost-templates/:id/components`, `POST /variants/:id/cost-template`
+
+Checkout improvements:
+- Fixed COGS snapshot on order creation (uses variant.cogs_current)
+- Checkout now reduces stock on order creation (OUT movement)
+
+Frontend additions:
+- POS page for staff to create offline orders (requires JWT token)
+

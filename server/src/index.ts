@@ -19,6 +19,9 @@ import { expensesRouter } from "./routes/expenses";
 import { reportsRouter } from "./routes/reports";
 import { cartRouter } from "./routes/cart";
 import { integrationsRouter } from "./routes/integrations";
+import { suppliersRouter } from "./routes/suppliers";
+import { purchasesRouter } from "./routes/purchases";
+import { costsRouter } from "./routes/costs";
 
 dotenv.config();
 
@@ -57,6 +60,9 @@ app.use("/", expensesRouter);
 app.use("/", reportsRouter);
 app.use("/cart", cartRouter);
 app.use("/", integrationsRouter);
+app.use("/", suppliersRouter);
+app.use("/", purchasesRouter);
+app.use("/", costsRouter);
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 app.listen(port, () => {

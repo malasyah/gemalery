@@ -3,9 +3,10 @@ import { AddressBook } from "./pages/AddressBook";
 import { Checkout } from "./pages/Checkout";
 import { Products } from "./pages/Products";
 import { Dashboard } from "./pages/Dashboard";
+import { POS } from "./pages/POS";
 
 export function App(): React.JSX.Element {
-  const [tab, setTab] = useState<"checkout" | "addresses" | "products" | "dashboard">("checkout");
+  const [tab, setTab] = useState<"checkout" | "addresses" | "products" | "dashboard" | "pos">("checkout");
   return (
     <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
       <h1>Gemalery</h1>
@@ -14,11 +15,13 @@ export function App(): React.JSX.Element {
         <button onClick={() => setTab("addresses")}>Address Book</button>
         <button onClick={() => setTab("products")}>Products</button>
         <button onClick={() => setTab("dashboard")}>Dashboard</button>
+        <button onClick={() => setTab("pos")}>POS</button>
       </div>
       {tab === "checkout" && <Checkout />}
       {tab === "addresses" && <AddressBook />}
       {tab === "products" && <Products />}
       {tab === "dashboard" && <Dashboard />}
+      {tab === "pos" && <POS />}
     </div>
   );
 }

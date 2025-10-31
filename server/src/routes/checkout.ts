@@ -77,22 +77,38 @@ checkoutRouter.post("/", async (req, res) => {
   const channel = await prisma.channel.findFirst({ where: { key: "web" } });
   if (!channel) return res.status(500).json({ error: "web channel missing" });
 
-  const order = await prisma.order.create({
-    data: {
-      channelId: channel.id,
-      customerId: customerId || null,
-      status: "pending",
-      subtotal,
-      discount_total: 0,
-      fees_total: 0,
-      shipping_method: quote.name,
-      shipping_cost: quote.cost,
-      shipping_address_snapshot: addressSnapshot,
-      items: {
-        create: lines.map(l => ({ productVariantId: l.variantId, qty: l.qty, price: l.price, cogs_snapshot: 0 }))
-      }
-    },
-    include: { items: true }
+  const order = await prisma.$transaction(async (tx) => {
+    const created = await tx.order.create({
+      data: {
+        channelId: channel.id,
+        customerId: customerId || null,
+        status: "pending",
+        subtotal,
+        discount_total: 0,
+        fees_total: 0,
+        shipping_method: quote.name,
+        shipping_cost: quote.cost,
+        shipping_address_snapshot: addressSnapshot,
+        items: {
+          create: lines.map(l => {
+            const v = variants.find(x => x.id === l.variantId)!;
+            return { productVariantId: l.variantId, qty: l.qty, price: l.price, cogs_snapshot: Number(v.cogs_current) };
+          })
+        }
+      },
+      include: { items: true }
+    });
+
+    // Stock movements OUT (reserve stock on order creation)
+    for (const l of lines) {
+      const v = variants.find(x => x.id === l.variantId)!;
+      await tx.stockMovement.create({
+        data: { productVariantId: l.variantId, type: "OUT", quantity: l.qty, unit_cost_applied: Number(v.cogs_current), ref_table: "order", ref_id: created.id }
+      });
+      await tx.productVariant.update({ where: { id: l.variantId }, data: { stock_on_hand: { decrement: l.qty } } });
+    }
+
+    return created;
   });
 
   res.status(201).json({ order, shipping_quote: quote });
