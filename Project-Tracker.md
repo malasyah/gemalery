@@ -76,3 +76,7 @@ Checkout improvements:
 Frontend additions:
 - POS page for staff to create offline orders (requires JWT token)
 
+Marketplace import:
+- Added `POST /orders/import` to manually import orders from Tokopedia/Shopee/TikTok with normalized fees
+- Records marketplace fees in `fees_total`, reduces stock, creates shipment if AWB provided
+
