@@ -100,7 +100,7 @@ describe("Products API", () => {
     it("should delete a product", async () => {
       vi.mocked(prisma.product.delete).mockResolvedValue({} as any);
 
-      await request(app).delete("/products/prod-1").expect(204);
+      await supertest(app).delete("/products/prod-1").expect(204);
 
       expect(prisma.product.delete).toHaveBeenCalledWith({
         where: { id: "prod-1" },
