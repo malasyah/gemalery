@@ -52,4 +52,26 @@ productsRouter.get("/variants/:variantId", async (req, res) => {
   res.json(variant);
 });
 
+// Update product
+productsRouter.patch("/:productId", async (req, res) => {
+  const { productId } = req.params;
+  const data = req.body || {};
+  const updated = await prisma.product.update({ where: { id: productId }, data });
+  res.json(updated);
+});
+
+// Delete product
+productsRouter.delete("/:productId", async (req, res) => {
+  const { productId } = req.params;
+  await prisma.product.delete({ where: { id: productId } });
+  res.status(204).send();
+});
+
+// Delete variant
+productsRouter.delete("/variants/:variantId", async (req, res) => {
+  const { variantId } = req.params;
+  await prisma.productVariant.delete({ where: { id: variantId } });
+  res.status(204).send();
+});
+
 
