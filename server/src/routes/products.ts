@@ -24,37 +24,49 @@ productsRouter.post("/", async (req, res) => {
 
   // Create product with variants in transaction
   try {
+    console.log("Creating product with variants:", { name, variantsCount: variants.length, variants });
+    
     const product = await prisma.$transaction(async (tx) => {
       const newProduct = await tx.product.create({
         data: { name, description, images }
       });
 
+      console.log("Product created:", newProduct.id);
+
       // Create all variants
       const createdVariants = await Promise.all(
-        variants.map((v: any) =>
-          tx.productVariant.create({
-            data: {
-              productId: newProduct.id,
-              sku: v.sku,
-              barcode: v.barcode || null,
-              weight_gram: Number(v.weight_gram) || 0,
-              stock_on_hand: Number(v.stock_on_hand) || 0,
-              price: Number(v.price) || 0,
-              default_purchase_price: Number(v.default_purchase_price) || 0,
-              default_operational_cost_unit: Number(v.default_operational_cost_unit) || 0,
-              cogs_current: Number(v.cogs_current) || 0,
-            },
-          })
-        )
+        variants.map((v: any, index: number) => {
+          const variantData = {
+            productId: newProduct.id,
+            sku: String(v.sku).trim(),
+            barcode: v.barcode && String(v.barcode).trim() ? String(v.barcode).trim() : null,
+            weight_gram: Number(v.weight_gram) || 0,
+            stock_on_hand: Number(v.stock_on_hand) || 0,
+            price: Number(v.price) || 0,
+            default_purchase_price: Number(v.default_purchase_price) || 0,
+            default_operational_cost_unit: Number(v.default_operational_cost_unit) || 0,
+            cogs_current: Number(v.cogs_current) || 0,
+          };
+          
+          console.log(`Creating variant ${index + 1}:`, variantData);
+          
+          return tx.productVariant.create({
+            data: variantData,
+          });
+        })
       );
+
+      console.log(`Created ${createdVariants.length} variants successfully`);
 
       return { ...newProduct, variants: createdVariants };
     });
 
+    console.log("Product and variants created successfully");
     res.status(201).json(product);
   } catch (error: any) {
     console.error("Error creating product:", error);
-    res.status(500).json({ error: error.message || "Failed to create product" });
+    console.error("Error stack:", error.stack);
+    res.status(500).json({ error: error.message || "Failed to create product", details: error.code });
   }
 });
 
