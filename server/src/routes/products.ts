@@ -3,10 +3,53 @@ import { prisma } from "../lib/prisma.js";
 
 export const productsRouter = Router();
 
-// Create product
+// Create product with variants
 productsRouter.post("/", async (req, res) => {
-  const { name, description, images } = req.body || {};
-  const product = await prisma.product.create({ data: { name, description, images } });
+  const { name, description, images, variants } = req.body || {};
+  
+  if (!name) {
+    return res.status(400).json({ error: "Product name is required" });
+  }
+  
+  if (!variants || !Array.isArray(variants) || variants.length === 0) {
+    return res.status(400).json({ error: "At least one variant is required" });
+  }
+
+  // Validate variants
+  for (const variant of variants) {
+    if (!variant.sku) {
+      return res.status(400).json({ error: "Variant SKU is required" });
+    }
+  }
+
+  // Create product with variants in transaction
+  const product = await prisma.$transaction(async (tx) => {
+    const newProduct = await tx.product.create({
+      data: { name, description, images }
+    });
+
+    // Create all variants
+    const createdVariants = await Promise.all(
+      variants.map((v: any) =>
+        tx.productVariant.create({
+          data: {
+            productId: newProduct.id,
+            sku: v.sku,
+            barcode: v.barcode,
+            weight_gram: v.weight_gram || 0,
+            stock_on_hand: v.stock_on_hand || 0,
+            price: v.price || 0,
+            default_purchase_price: v.default_purchase_price || 0,
+            default_operational_cost_unit: v.default_operational_cost_unit || 0,
+            cogs_current: v.cogs_current || 0,
+          },
+        })
+      )
+    );
+
+    return { ...newProduct, variants: createdVariants };
+  });
+
   res.status(201).json(product);
 });
 
