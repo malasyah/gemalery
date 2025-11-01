@@ -13,7 +13,20 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     ...init
   });
   if (!res.ok) throw new Error(await res.text());
-  return (await res.json()) as T;
+  
+  // Handle 204 No Content or empty response
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as T;
+  }
+  
+  const text = await res.text();
+  if (!text) return undefined as T;
+  
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined as T;
+  }
 }
 
 
