@@ -80,3 +80,12 @@ Marketplace import:
 - Added `POST /orders/import` to manually import orders from Tokopedia/Shopee/TikTok with normalized fees
 - Records marketplace fees in `fees_total`, reduces stock, creates shipment if AWB provided
 
+Deployment:
+- Fixed ESM import issues (added .js extensions to all relative imports)
+- Fixed missing @vitejs/plugin-react dependency for Vercel build
+- Deployed API to Railway (production environment)
+- Deployed web to Vercel (gemalery.vercel.app)
+- Database migrations applied to Neon (main branch)
+- Seed data (channels) populated successfully
+- CORS configured for Vercel domain
+

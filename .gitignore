@@ -30,3 +30,10 @@ web/.vercel/
 
 # Prisma
 server/prisma/dev.db*
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+server/coverage/
+web/coverage/

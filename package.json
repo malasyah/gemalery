@@ -10,7 +10,12 @@
     "build": "npm -ws run build",
     "dev": "npm -ws run dev",
     "start": "npm -w server run start",
-    "lint": "npm -ws run lint"
+    "test": "npm -ws run test",
+    "test:coverage": "npm -ws run test:coverage",
+    "lint": "npm -ws run lint",
+    "lint:fix": "npm -ws run lint:fix",
+    "format": "npm -ws run format",
+    "format:check": "npm -ws run format:check"
   }
 }
 
