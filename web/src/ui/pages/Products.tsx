@@ -82,14 +82,21 @@ export function Products(): React.JSX.Element {
     }
     
     try {
-      await api("/products", {
+      const payload = {
+        name: pForm.name,
+        description: pForm.description,
+        variants: productVariants,
+      };
+      
+      console.log("Creating product with payload:", payload);
+      
+      const result = await api("/products", {
         method: "POST",
-        body: JSON.stringify({
-          name: pForm.name,
-          description: pForm.description,
-          variants: productVariants,
-        }),
+        body: JSON.stringify(payload),
       });
+      
+      console.log("Product created:", result);
+      
       setPForm({ name: "", description: "" });
       setProductVariants([]);
       setVariantForm({
@@ -104,7 +111,9 @@ export function Products(): React.JSX.Element {
       });
       await load();
     } catch (e: any) {
-      alert("Error: " + (e.message || String(e)));
+      console.error("Error creating product:", e);
+      const errorMsg = e.message || (typeof e === "string" ? e : JSON.stringify(e));
+      alert("Error saat membuat produk: " + errorMsg);
     }
   }
 
