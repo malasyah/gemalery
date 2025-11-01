@@ -127,8 +127,31 @@ productsRouter.patch("/:productId", async (req, res) => {
 
 productsRouter.delete("/:productId", async (req, res) => {
   const { productId } = req.params;
-  await prisma.product.delete({ where: { id: productId } });
-  res.status(204).send();
+  
+  try {
+    // Delete product with all variants in transaction
+    await prisma.$transaction(async (tx) => {
+      // First delete all variants (to avoid foreign key constraint)
+      await tx.productVariant.deleteMany({
+        where: { productId }
+      });
+      
+      // Then delete the product
+      await tx.product.delete({
+        where: { id: productId }
+      });
+    });
+    
+    res.status(204).send();
+  } catch (error: any) {
+    console.error("Error deleting product:", error);
+    
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
+    res.status(500).json({ error: error.message || "Failed to delete product" });
+  }
 });
 
 
