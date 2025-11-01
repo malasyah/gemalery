@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { prisma } from "../lib/prisma";
-import { signToken } from "../middleware/auth";
+import { prisma } from "../lib/prisma.js";
+import { signToken } from "../middleware/auth.js";
 
 export const authRouter = Router();
 
