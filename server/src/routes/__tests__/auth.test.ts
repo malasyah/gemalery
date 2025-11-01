@@ -3,8 +3,7 @@ import express from "express";
 import { authRouter } from "../auth.js";
 import { prisma } from "../../lib/prisma.js";
 import bcrypt from "bcryptjs";
-
-const { default: supertest } = await import("supertest");
+import supertest from "supertest";
 
 // Mock Prisma
 vi.mock("../../lib/prisma.js", () => ({

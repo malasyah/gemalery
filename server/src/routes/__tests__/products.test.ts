@@ -1,10 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import request from "supertest";
 import express from "express";
 import { productsRouter } from "../products.js";
 import { prisma } from "../../lib/prisma.js";
-
-const { default: supertest } = await import("supertest");
+import supertest from "supertest";
 
 // Mock Prisma
 vi.mock("../../lib/prisma.js", () => ({
