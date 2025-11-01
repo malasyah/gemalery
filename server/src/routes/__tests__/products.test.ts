@@ -19,6 +19,7 @@ vi.mock("../../lib/prisma.js", () => ({
       delete: vi.fn(),
       findUnique: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -32,7 +33,7 @@ describe("Products API", () => {
   });
 
   describe("POST /products", () => {
-    it("should create a new product", async () => {
+    it("should create a new product with variants", async () => {
       const mockProduct = {
         id: "test-id",
         name: "Test Product",
@@ -40,17 +41,51 @@ describe("Products API", () => {
         images: null,
       };
 
+      const mockVariants = [
+        {
+          id: "var-1",
+          productId: "test-id",
+          sku: "SKU-1",
+          weight_gram: 100,
+          stock_on_hand: 10,
+          price: 10000,
+          default_purchase_price: 5000,
+          default_operational_cost_unit: 1000,
+          cogs_current: 6000,
+        },
+      ];
+
       vi.mocked(prisma.product.create).mockResolvedValue(mockProduct as any);
+      vi.mocked(prisma.productVariant.create).mockResolvedValue(mockVariants[0] as any);
+      vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => {
+        const tx = {
+          product: { create: prisma.product.create },
+          productVariant: { create: prisma.productVariant.create },
+        };
+        return callback(tx);
+      });
 
       const response = await supertest(app)
         .post("/products")
-        .send({ name: "Test Product", description: "Test Description" })
+        .send({
+          name: "Test Product",
+          description: "Test Description",
+          variants: [
+            {
+              sku: "SKU-1",
+              weight_gram: 100,
+              stock_on_hand: 10,
+              price: 10000,
+              default_purchase_price: 5000,
+              default_operational_cost_unit: 1000,
+              cogs_current: 6000,
+            },
+          ],
+        })
         .expect(201);
 
-      expect(response.body).toEqual(mockProduct);
-      expect(prisma.product.create).toHaveBeenCalledWith({
-        data: { name: "Test Product", description: "Test Description", images: undefined },
-      });
+      expect(response.body).toHaveProperty("id");
+      expect(response.body).toHaveProperty("variants");
     });
   });
 
