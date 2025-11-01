@@ -23,34 +23,39 @@ productsRouter.post("/", async (req, res) => {
   }
 
   // Create product with variants in transaction
-  const product = await prisma.$transaction(async (tx) => {
-    const newProduct = await tx.product.create({
-      data: { name, description, images }
+  try {
+    const product = await prisma.$transaction(async (tx) => {
+      const newProduct = await tx.product.create({
+        data: { name, description, images }
+      });
+
+      // Create all variants
+      const createdVariants = await Promise.all(
+        variants.map((v: any) =>
+          tx.productVariant.create({
+            data: {
+              productId: newProduct.id,
+              sku: v.sku,
+              barcode: v.barcode || null,
+              weight_gram: Number(v.weight_gram) || 0,
+              stock_on_hand: Number(v.stock_on_hand) || 0,
+              price: Number(v.price) || 0,
+              default_purchase_price: Number(v.default_purchase_price) || 0,
+              default_operational_cost_unit: Number(v.default_operational_cost_unit) || 0,
+              cogs_current: Number(v.cogs_current) || 0,
+            },
+          })
+        )
+      );
+
+      return { ...newProduct, variants: createdVariants };
     });
 
-    // Create all variants
-    const createdVariants = await Promise.all(
-      variants.map((v: any) =>
-        tx.productVariant.create({
-          data: {
-            productId: newProduct.id,
-            sku: v.sku,
-            barcode: v.barcode,
-            weight_gram: v.weight_gram || 0,
-            stock_on_hand: v.stock_on_hand || 0,
-            price: v.price || 0,
-            default_purchase_price: v.default_purchase_price || 0,
-            default_operational_cost_unit: v.default_operational_cost_unit || 0,
-            cogs_current: v.cogs_current || 0,
-          },
-        })
-      )
-    );
-
-    return { ...newProduct, variants: createdVariants };
-  });
-
-  res.status(201).json(product);
+    res.status(201).json(product);
+  } catch (error: any) {
+    console.error("Error creating product:", error);
+    res.status(500).json({ error: error.message || "Failed to create product" });
+  }
 });
 
 // List products
