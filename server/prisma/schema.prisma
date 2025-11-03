@@ -47,28 +47,28 @@ enum PaymentStatus {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String    @id @default(cuid())
+  email     String    @unique
   password  String
   role      UserRole
   name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   // relations
   customer  Customer?
 }
 
 model Customer {
-  id        String             @id @default(cuid())
-  userId    String?            @unique
-  user      User?              @relation(fields: [userId], references: [id])
+  id        String            @id @default(cuid())
+  userId    String?           @unique
+  user      User?             @relation(fields: [userId], references: [id])
   name      String
   phone     String?
   email     String?
   addresses CustomerAddress[]
   orders    Order[]
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 }
 
 model CustomerAddress {
@@ -95,40 +95,49 @@ model CustomerAddress {
 }
 
 model Supplier {
-  id        String   @id @default(cuid())
-  name      String
-  phone     String?
-  email     String?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String          @id @default(cuid())
+  name           String
+  phone          String?
+  email          String?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   // relations
   purchaseOrders PurchaseOrder[]
 }
 
 model PurchaseOrder {
-  id          String         @id @default(cuid())
-  supplierId  String
-  supplier    Supplier       @relation(fields: [supplierId], references: [id])
-  status      String         // draft, ordered, received, cancelled
-  orderedAt   DateTime?
-  receivedAt  DateTime?
-  notes       String?
-  items       PurchaseItem[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id         String         @id @default(cuid())
+  supplierId String
+  supplier   Supplier       @relation(fields: [supplierId], references: [id])
+  status     String // draft, ordered, received, cancelled
+  orderedAt  DateTime?
+  receivedAt DateTime?
+  notes      String?
+  items      PurchaseItem[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 }
 
 model PurchaseItem {
-  id                     String         @id @default(cuid())
-  purchaseOrderId        String
-  purchaseOrder          PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id])
-  productVariantId       String
-  productVariant         ProductVariant @relation(fields: [productVariantId], references: [id])
-  qty                    Int
-  unit_cost              Decimal        @db.Decimal(12, 2)
-  operational_cost_unit  Decimal        @db.Decimal(12, 2)
-  landed_cost_unit       Decimal        @db.Decimal(12, 2)
+  id                    String         @id @default(cuid())
+  purchaseOrderId       String
+  purchaseOrder         PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id])
+  productVariantId      String
+  productVariant        ProductVariant @relation(fields: [productVariantId], references: [id])
+  qty                   Int
+  unit_cost             Decimal        @db.Decimal(12, 2)
+  operational_cost_unit Decimal        @db.Decimal(12, 2)
+  landed_cost_unit      Decimal        @db.Decimal(12, 2)
+}
+
+model ProductCategory {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Product {
@@ -136,31 +145,34 @@ model Product {
   name        String
   description String?
   images      Json?
+  categoryId  String?
+  category    ProductCategory? @relation(fields: [categoryId], references: [id])
   variants    ProductVariant[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 }
 
 model ProductVariant {
-  id                            String            @id @default(cuid())
+  id                            String                    @id @default(cuid())
   productId                     String
-  product                       Product           @relation(fields: [productId], references: [id])
-  sku                           String            @unique
+  product                       Product                   @relation(fields: [productId], references: [id])
+  sku                           String                    @unique
   barcode                       String?
-  weight_gram                   Int               @default(0)
-  stock_on_hand                 Int               @default(0)
-  price                         Decimal           @db.Decimal(12, 2)
-  default_purchase_price        Decimal           @db.Decimal(12, 2)
-  default_operational_cost_unit Decimal           @db.Decimal(12, 2)
-  cogs_current                  Decimal           @db.Decimal(12, 2)
+  weight_gram                   Int                       @default(0)
+  stock_on_hand                 Int                       @default(0)
+  price                         Decimal                   @db.Decimal(12, 2)
+  default_purchase_price        Decimal                   @db.Decimal(12, 2)
+  default_operational_cost_unit Decimal                   @db.Decimal(12, 2)
+  cogs_current                  Decimal                   @db.Decimal(12, 2)
+  images                        Json?
   inventoryLevels               InventoryLevel[]
   // relations
   purchaseItems                 PurchaseItem[]
   stockMovements                StockMovement[]
   orderItems                    OrderItem[]
   costTemplateLinks             VariantCostTemplateLink[]
-  createdAt                     DateTime          @default(now())
-  updatedAt                     DateTime          @updatedAt
+  createdAt                     DateTime                  @default(now())
+  updatedAt                     DateTime                  @updatedAt
 }
 
 model Warehouse {
@@ -173,7 +185,7 @@ model Warehouse {
 }
 
 model InventoryLevel {
-  id              String         @id @default(cuid())
+  id               String         @id @default(cuid())
   productVariantId String
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   warehouseId      String
@@ -184,45 +196,45 @@ model InventoryLevel {
 }
 
 model StockMovement {
-  id              String            @id @default(cuid())
-  productVariantId String
-  productVariant   ProductVariant    @relation(fields: [productVariantId], references: [id])
-  type            StockMovementType
-  quantity        Int
-  unit_cost_applied Decimal?        @db.Decimal(12, 2)
-  ref_table       String?
-  ref_id          String?
-  createdAt       DateTime          @default(now())
+  id                String            @id @default(cuid())
+  productVariantId  String
+  productVariant    ProductVariant    @relation(fields: [productVariantId], references: [id])
+  type              StockMovementType
+  quantity          Int
+  unit_cost_applied Decimal?          @db.Decimal(12, 2)
+  ref_table         String?
+  ref_id            String?
+  createdAt         DateTime          @default(now())
 
   @@index([productVariantId])
 }
 
 model Channel {
-  id    String     @id @default(cuid())
-  key   ChannelKey @unique
-  name  String
+  id     String     @id @default(cuid())
+  key    ChannelKey @unique
+  name   String
   // relations
   orders Order[]
 }
 
 model Order {
-  id               String      @id @default(cuid())
-  channelId        String
-  channel          Channel     @relation(fields: [channelId], references: [id])
-  customerId       String?
-  customer         Customer?   @relation(fields: [customerId], references: [id])
-  status           OrderStatus
-  subtotal         Decimal      @db.Decimal(12, 2)
-  discount_total   Decimal      @db.Decimal(12, 2)
-  fees_total       Decimal      @db.Decimal(12, 2)
-  shipping_method  String?
-  shipping_cost    Decimal      @db.Decimal(12, 2)
+  id                        String      @id @default(cuid())
+  channelId                 String
+  channel                   Channel     @relation(fields: [channelId], references: [id])
+  customerId                String?
+  customer                  Customer?   @relation(fields: [customerId], references: [id])
+  status                    OrderStatus
+  subtotal                  Decimal     @db.Decimal(12, 2)
+  discount_total            Decimal     @db.Decimal(12, 2)
+  fees_total                Decimal     @db.Decimal(12, 2)
+  shipping_method           String?
+  shipping_cost             Decimal     @db.Decimal(12, 2)
   shipping_address_snapshot Json?
-  items            OrderItem[]
-  payments         Payment[]
-  shipments        Shipment[]
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  items                     OrderItem[]
+  payments                  Payment[]
+  shipments                 Shipment[]
+  createdAt                 DateTime    @default(now())
+  updatedAt                 DateTime    @updatedAt
 }
 
 model OrderItem {
@@ -257,20 +269,20 @@ model Expense {
 }
 
 model OperationalCostTemplate {
-  id        String                      @id @default(cuid())
-  name      String
-  active    Boolean                     @default(true)
+  id         String                     @id @default(cuid())
+  name       String
+  active     Boolean                    @default(true)
   components OperationalCostComponent[]
-  links     VariantCostTemplateLink[]
+  links      VariantCostTemplateLink[]
 }
 
 model OperationalCostComponent {
-  id         String                   @id @default(cuid())
+  id         String                  @id @default(cuid())
   templateId String
-  template   OperationalCostTemplate  @relation(fields: [templateId], references: [id])
+  template   OperationalCostTemplate @relation(fields: [templateId], references: [id])
   name       String
-  method     String                   // fixed | percent | per_weight
-  value      Decimal                  @db.Decimal(12, 4)
+  method     String // fixed | percent | per_weight
+  value      Decimal                 @db.Decimal(12, 4)
 }
 
 model VariantCostTemplateLink {
@@ -294,21 +306,21 @@ model Integration {
 }
 
 model Shipment {
-  id        String   @id @default(cuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id])
-  carrier   String   // JNE
-  service   String?
-  awb       String
-  status    String?
+  id              String          @id @default(cuid())
+  orderId         String
+  order           Order           @relation(fields: [orderId], references: [id])
+  carrier         String // JNE
+  service         String?
+  awb             String
+  status          String?
   last_checked_at DateTime?
-  events    ShipmentEvent[]
+  events          ShipmentEvent[]
 }
 
 model ShipmentEvent {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   shipmentId  String
-  shipment    Shipment @relation(fields: [shipmentId], references: [id])
+  shipment    Shipment  @relation(fields: [shipmentId], references: [id])
   code        String?
   description String?
   city        String?
@@ -317,12 +329,22 @@ model ShipmentEvent {
 }
 
 model Webhook {
-  id        String   @id @default(cuid())
-  channel   String
-  url       String
-  last_status String?
+  id               String    @id @default(cuid())
+  channel          String
+  url              String
+  last_status      String?
   last_delivery_at DateTime?
-  createdAt DateTime @default(now())
+  createdAt        DateTime  @default(now())
 }
 
-
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

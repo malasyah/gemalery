@@ -8,8 +8,15 @@ if (typeof window !== "undefined") {
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = localStorage.getItem("token");
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  
   const res = await fetch(`${apiBase}${path}`, {
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+    headers: { ...headers, ...(init?.headers || {}) },
     ...init
   });
   

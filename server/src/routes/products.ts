@@ -77,9 +77,143 @@ productsRouter.post("/", async (req, res) => {
   }
 });
 
-// List products
+// Public routes (must be before admin routes)
+productsRouter.get("/public", async (req, res) => {
+  const { categoryId, search } = req.query;
+  const where: any = {};
+  
+  if (categoryId) {
+    where.categoryId = categoryId as string;
+  }
+  
+  if (search) {
+    where.OR = [
+      { name: { contains: search as string, mode: "insensitive" } },
+      { description: { contains: search as string, mode: "insensitive" } },
+      { variants: { some: { sku: { contains: search as string, mode: "insensitive" } } } }
+    ];
+  }
+  
+  const products = await prisma.product.findMany({
+    where,
+    include: {
+      category: true,
+      variants: {
+        where: { stock_on_hand: { gt: 0 } }, // Only show variants with stock
+        orderBy: { price: "asc" }
+      }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+  res.json(products);
+});
+
+productsRouter.get("/recommended", async (_req, res) => {
+  // Get 3 products with highest stock (recommendation logic)
+  const products = await prisma.product.findMany({
+    include: {
+      category: true,
+      variants: {
+        where: { stock_on_hand: { gt: 0 } },
+        orderBy: [{ stock_on_hand: "desc" }, { price: "asc" }],
+        take: 1 // Get first variant with stock
+      }
+    },
+    orderBy: { createdAt: "desc" },
+    take: 3
+  });
+  
+  // Filter out products with no variants
+  const filtered = products.filter(p => p.variants.length > 0);
+  res.json(filtered);
+});
+
+productsRouter.get("/latest", async (_req, res) => {
+  const products = await prisma.product.findMany({
+    include: {
+      category: true,
+      variants: {
+        where: { stock_on_hand: { gt: 0 } },
+        orderBy: { price: "asc" },
+        take: 1
+      }
+    },
+    orderBy: { createdAt: "desc" },
+    take: 3
+  });
+  
+  const filtered = products.filter(p => p.variants.length > 0);
+  res.json(filtered);
+});
+
+productsRouter.get("/popular", async (_req, res) => {
+  // Get products ordered by most order items
+  const popularVariants = await prisma.orderItem.groupBy({
+    by: ["productVariantId"],
+    _count: { productVariantId: true },
+    orderBy: { _count: { productVariantId: "desc" } },
+    take: 3
+  });
+  
+  if (popularVariants.length === 0) {
+    return res.json([]);
+  }
+  
+  const variantIds = popularVariants.map(v => v.productVariantId);
+  const variants = await prisma.productVariant.findMany({
+    where: { id: { in: variantIds }, stock_on_hand: { gt: 0 } },
+    include: {
+      product: {
+        include: { category: true }
+      }
+    }
+  });
+  
+  // Group by product and get unique products
+  const productMap = new Map();
+  variants.forEach(v => {
+    if (!productMap.has(v.productId)) {
+      productMap.set(v.productId, {
+        ...v.product,
+        variants: []
+      });
+    }
+    productMap.get(v.productId).variants.push(v);
+  });
+  
+  const products = Array.from(productMap.values());
+  res.json(products);
+});
+
+productsRouter.get("/categories", async (_req, res) => {
+  const categories = await prisma.productCategory.findMany({
+    orderBy: { name: "asc" }
+  });
+  res.json(categories);
+});
+
+productsRouter.get("/:id", async (req, res) => {
+  const { id } = req.params;
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: {
+      category: true,
+      variants: {
+        orderBy: { price: "asc" }
+      }
+    }
+  });
+  
+  if (!product) {
+    return res.status(404).json({ error: "Product not found" });
+  }
+  
+  res.json(product);
+});
+
+// List products (admin route)
 productsRouter.get("/", async (_req, res) => {
-  const products = await prisma.product.findMany({ include: { variants: true } });
+  const products = await prisma.product.findMany({ include: { variants: true, category: true } });
   res.json(products);
 });
 

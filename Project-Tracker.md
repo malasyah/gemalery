@@ -89,3 +89,11 @@ Deployment:
 - Seed data (channels) populated successfully
 - CORS configured for Vercel domain
 
+Testing & Code Quality:
+- Setup Vitest for unit testing (backend + frontend)
+- Setup ESLint for linting (TypeScript/React)
+- Setup Prettier for code formatting
+- Added code coverage reporting (@vitest/coverage-v8)
+- Created example unit tests for products API and React components
+- Added test scripts: test, test:ui, test:coverage, lint, lint:fix, format, format:check
+
