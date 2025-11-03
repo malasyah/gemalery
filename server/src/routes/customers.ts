@@ -5,23 +5,28 @@ export const customersRouter = Router();
 
 // List all customers
 customersRouter.get("/", async (_req, res) => {
-  const customers = await prisma.customer.findMany({
-    include: {
-      user: {
-        select: { email: true, name: true }
+  try {
+    const customers = await prisma.customer.findMany({
+      include: {
+        user: {
+          select: { email: true, name: true }
+        },
+        addresses: {
+          where: { is_deleted: false },
+          take: 1,
+          orderBy: { is_default: "desc" }
+        },
+        _count: {
+          select: { orders: true }
+        }
       },
-      addresses: {
-        where: { is_deleted: false },
-        take: 1,
-        orderBy: { is_default: "desc" }
-      },
-      _count: {
-        select: { orders: true }
-      }
-    },
-    orderBy: { createdAt: "desc" }
-  });
-  res.json(customers);
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(customers);
+  } catch (error: any) {
+    console.error("Error listing customers:", error);
+    res.status(500).json({ error: error.message || "Failed to list customers" });
+  }
 });
 
 // Get customer by ID
@@ -50,15 +55,26 @@ customersRouter.get("/:customerId", async (req, res) => {
 customersRouter.post("/", async (req, res) => {
   const { name, phone, email, userId } = req.body || {};
   
-  if (!name) {
+  if (!name || !name.trim()) {
     return res.status(400).json({ error: "Customer name is required" });
   }
   
   try {
-    // If userId is provided, check if it exists and doesn't already have a customer
-    if (userId) {
+    const finalUserId = userId && userId.trim() ? userId.trim() : null;
+    
+    // If userId is provided, check if user exists and doesn't already have a customer
+    if (finalUserId) {
+      // Check if user exists
+      const user = await prisma.user.findUnique({
+        where: { id: finalUserId }
+      });
+      if (!user) {
+        return res.status(400).json({ error: "User not found" });
+      }
+      
+      // Check if user already has a customer
       const existingCustomer = await prisma.customer.findUnique({
-        where: { userId }
+        where: { userId: finalUserId }
       });
       if (existingCustomer) {
         return res.status(400).json({ error: "User already has a customer record" });
@@ -67,20 +83,30 @@ customersRouter.post("/", async (req, res) => {
     
     const customer = await prisma.customer.create({
       data: {
-        name,
-        phone: phone || null,
-        email: email || null,
-        userId: userId || null
+        name: name.trim(),
+        phone: phone && phone.trim() ? phone.trim() : null,
+        email: email && email.trim() ? email.trim() : null,
+        userId: finalUserId
       },
       include: {
-        user: {
+        user: finalUserId ? {
           select: { email: true, name: true }
-        }
+        } : false
       }
     });
     res.status(201).json(customer);
   } catch (error: any) {
     console.error("Error creating customer:", error);
+    console.error("Error details:", { code: error.code, meta: error.meta });
+    
+    if (error.code === "P2002") {
+      return res.status(400).json({ error: "Duplicate entry. Email or phone may already exist." });
+    }
+    
+    if (error.code === "P2003") {
+      return res.status(400).json({ error: "Invalid userId. User not found." });
+    }
+    
     res.status(500).json({ error: error.message || "Failed to create customer" });
   }
 });

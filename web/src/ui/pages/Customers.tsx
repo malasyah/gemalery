@@ -47,14 +47,17 @@ export function Customers(): React.JSX.Element {
     }
 
     try {
+      const payload: any = {
+        name: form.name.trim(),
+      };
+      
+      if (form.phone.trim()) payload.phone = form.phone.trim();
+      if (form.email.trim()) payload.email = form.email.trim();
+      if (form.userId.trim()) payload.userId = form.userId.trim();
+      
       await api("/customers", {
         method: "POST",
-        body: JSON.stringify({
-          name: form.name.trim(),
-          phone: form.phone.trim() || null,
-          email: form.email.trim() || null,
-          userId: form.userId.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
       setForm({ name: "", phone: "", email: "", userId: "" });
       await load();
@@ -88,14 +91,22 @@ export function Customers(): React.JSX.Element {
     }
 
     try {
+      const payload: any = {
+        name: editForm.name.trim(),
+      };
+      
+      if (editForm.phone.trim()) payload.phone = editForm.phone.trim();
+      else payload.phone = null;
+      
+      if (editForm.email.trim()) payload.email = editForm.email.trim();
+      else payload.email = null;
+      
+      if (editForm.userId.trim()) payload.userId = editForm.userId.trim();
+      else payload.userId = null;
+      
       await api(`/customers/${customerId}`, {
         method: "PATCH",
-        body: JSON.stringify({
-          name: editForm.name.trim(),
-          phone: editForm.phone.trim() || null,
-          email: editForm.email.trim() || null,
-          userId: editForm.userId.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
       setEditingId(null);
       setEditForm({ name: "", phone: "", email: "", userId: "" });
