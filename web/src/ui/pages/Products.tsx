@@ -61,10 +61,12 @@ export function Products(): React.JSX.Element {
     }
     
     const skuTrimmed = variantForm.sku.trim();
+    const skuLower = skuTrimmed.toLowerCase();
     
-    // Check for duplicate SKU in current product variants
-    if (productVariants.some(v => v.sku && v.sku.trim() === skuTrimmed)) {
-      alert(`SKU "${skuTrimmed}" sudah ada dalam daftar variant. Setiap variant harus memiliki SKU yang unik.`);
+    // Check for duplicate SKU in current product variants (case-insensitive)
+    const duplicate = productVariants.find(v => v.sku && v.sku.trim().toLowerCase() === skuLower);
+    if (duplicate) {
+      alert(`SKU "${skuTrimmed}" sudah ada dalam daftar variant (SKU "${duplicate.sku}"). SKU tidak boleh sama meskipun huruf kapital/kecil berbeda. Setiap variant harus memiliki SKU yang unik.`);
       return;
     }
     
@@ -184,12 +186,14 @@ export function Products(): React.JSX.Element {
       return;
     }
     
-    // Check for duplicate SKU in existing product variants (client-side validation)
+    // Check for duplicate SKU in existing product variants (client-side validation, case-insensitive)
     const product = products.find(p => p.id === productId);
     if (product) {
       const skuTrimmed = variantFormForExisting.sku.trim();
-      if (product.variants.some(v => v.sku && v.sku.trim() === skuTrimmed)) {
-        alert(`SKU "${skuTrimmed}" sudah ada dalam produk ini. Setiap variant harus memiliki SKU yang unik.`);
+      const skuLower = skuTrimmed.toLowerCase();
+      const duplicate = product.variants.find(v => v.sku && v.sku.trim().toLowerCase() === skuLower);
+      if (duplicate) {
+        alert(`SKU "${skuTrimmed}" sudah ada dalam produk ini (SKU "${duplicate.sku}"). SKU tidak boleh sama meskipun huruf kapital/kecil berbeda. Setiap variant harus memiliki SKU yang unik.`);
         return;
       }
     }

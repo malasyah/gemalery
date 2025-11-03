@@ -15,15 +15,16 @@ productsRouter.post("/", async (req, res) => {
     return res.status(400).json({ error: "At least one variant is required" });
   }
 
-  // Validate variants
+  // Validate variants (case-insensitive SKU comparison)
   const skuSet = new Set<string>();
   for (const variant of variants) {
     if (!variant.sku) {
       return res.status(400).json({ error: "Variant SKU is required" });
     }
-    const sku = String(variant.sku).trim();
+    const sku = String(variant.sku).trim().toLowerCase();
     if (skuSet.has(sku)) {
-      return res.status(400).json({ error: `Duplicate SKU found: ${sku}. Each variant in a product must have a unique SKU.` });
+      const originalSku = String(variant.sku).trim();
+      return res.status(400).json({ error: `Duplicate SKU found: "${originalSku}". SKU tidak boleh sama (case-insensitive). Setiap variant dalam satu produk harus memiliki SKU yang unik.` });
     }
     skuSet.add(sku);
   }
@@ -98,19 +99,22 @@ productsRouter.patch("/variants/:variantId", async (req, res) => {
       return res.status(404).json({ error: "Variant not found" });
     }
     
-    // If SKU is being updated, check for duplicates in the same product
-    if (data.sku && data.sku !== currentVariant.sku) {
+    // If SKU is being updated, check for duplicates in the same product (case-insensitive)
+    if (data.sku && String(data.sku).trim().toLowerCase() !== currentVariant.sku.toLowerCase()) {
       const skuTrimmed = String(data.sku).trim();
-      const existingVariant = await prisma.productVariant.findFirst({
+      const skuLower = skuTrimmed.toLowerCase();
+      
+      // Get all variants in this product
+      const existingVariants = await prisma.productVariant.findMany({
         where: {
           productId: currentVariant.productId,
-          sku: skuTrimmed,
           id: { not: variantId } // Exclude current variant
         }
       });
       
-      if (existingVariant) {
-        return res.status(400).json({ error: `SKU "${skuTrimmed}" already exists in this product. Each variant must have a unique SKU.` });
+      const duplicate = existingVariants.find(v => v.sku.toLowerCase() === skuLower);
+      if (duplicate) {
+        return res.status(400).json({ error: `SKU "${skuTrimmed}" sudah ada dalam produk ini (SKU "${duplicate.sku}"). SKU tidak boleh sama meskipun huruf kapital/kecil berbeda. Setiap variant harus memiliki SKU yang unik.` });
       }
       
       data.sku = skuTrimmed;
@@ -174,17 +178,16 @@ productsRouter.post("/:productId/variants", async (req, res) => {
     }
     
     const skuTrimmed = String(sku).trim();
+    const skuLower = skuTrimmed.toLowerCase();
     
-    // Check if SKU already exists in this product
-    const existingVariant = await prisma.productVariant.findFirst({
-      where: {
-        productId,
-        sku: skuTrimmed
-      }
+    // Check if SKU already exists in this product (case-insensitive)
+    const existingVariants = await prisma.productVariant.findMany({
+      where: { productId }
     });
     
-    if (existingVariant) {
-      return res.status(400).json({ error: `SKU "${skuTrimmed}" already exists in this product. Each variant must have a unique SKU.` });
+    const duplicate = existingVariants.find(v => v.sku.toLowerCase() === skuLower);
+    if (duplicate) {
+      return res.status(400).json({ error: `SKU "${skuTrimmed}" sudah ada dalam produk ini (SKU "${duplicate.sku}"). SKU tidak boleh sama meskipun huruf kapital/kecil berbeda. Setiap variant harus memiliki SKU yang unik.` });
     }
     
     const variant = await prisma.productVariant.create({
