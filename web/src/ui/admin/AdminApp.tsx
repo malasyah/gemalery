@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { AddressBook } from "../../pages/AddressBook";
-import { Checkout } from "../../pages/Checkout";
-import { Products } from "../pages/Products"; // Admin Products page
-import { Dashboard } from "../../pages/Dashboard";
-import { POS } from "../../pages/POS";
-import { Customers } from "../../pages/Customers";
+import { AddressBook } from "../pages/AddressBook";
+import { Checkout } from "../pages/Checkout";
+import { Products } from "../pages/Products";
+import { Dashboard } from "../pages/Dashboard";
+import { POS } from "../pages/POS";
+import { Customers } from "../pages/Customers";
 
 export function AdminApp(): React.JSX.Element {
   const [tab, setTab] = useState<"checkout" | "addresses" | "products" | "dashboard" | "pos" | "customers">("checkout");
@@ -28,4 +28,3 @@ export function AdminApp(): React.JSX.Element {
     </div>
   );
 }
-
