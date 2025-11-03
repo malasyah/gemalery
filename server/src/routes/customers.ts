@@ -3,6 +3,154 @@ import { prisma } from "../lib/prisma.js";
 
 export const customersRouter = Router();
 
+// List all customers
+customersRouter.get("/", async (_req, res) => {
+  const customers = await prisma.customer.findMany({
+    include: {
+      user: {
+        select: { email: true, name: true }
+      },
+      addresses: {
+        where: { is_deleted: false },
+        take: 1,
+        orderBy: { is_default: "desc" }
+      },
+      _count: {
+        select: { orders: true }
+      }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+  res.json(customers);
+});
+
+// Get customer by ID
+customersRouter.get("/:customerId", async (req, res) => {
+  const { customerId } = req.params;
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      user: {
+        select: { email: true, name: true }
+      },
+      addresses: {
+        where: { is_deleted: false },
+        orderBy: [{ is_default: "desc" }, { createdAt: "asc" }]
+      },
+      _count: {
+        select: { orders: true }
+      }
+    }
+  });
+  if (!customer) return res.status(404).json({ error: "Customer not found" });
+  res.json(customer);
+});
+
+// Create customer
+customersRouter.post("/", async (req, res) => {
+  const { name, phone, email, userId } = req.body || {};
+  
+  if (!name) {
+    return res.status(400).json({ error: "Customer name is required" });
+  }
+  
+  try {
+    // If userId is provided, check if it exists and doesn't already have a customer
+    if (userId) {
+      const existingCustomer = await prisma.customer.findUnique({
+        where: { userId }
+      });
+      if (existingCustomer) {
+        return res.status(400).json({ error: "User already has a customer record" });
+      }
+    }
+    
+    const customer = await prisma.customer.create({
+      data: {
+        name,
+        phone: phone || null,
+        email: email || null,
+        userId: userId || null
+      },
+      include: {
+        user: {
+          select: { email: true, name: true }
+        }
+      }
+    });
+    res.status(201).json(customer);
+  } catch (error: any) {
+    console.error("Error creating customer:", error);
+    res.status(500).json({ error: error.message || "Failed to create customer" });
+  }
+});
+
+// Update customer
+customersRouter.patch("/:customerId", async (req, res) => {
+  const { customerId } = req.params;
+  const { name, phone, email, userId } = req.body || {};
+  
+  try {
+    // If userId is being updated, check if it's available
+    if (userId) {
+      const existingCustomer = await prisma.customer.findFirst({
+        where: {
+          userId,
+          id: { not: customerId }
+        }
+      });
+      if (existingCustomer) {
+        return res.status(400).json({ error: "User already linked to another customer" });
+      }
+    }
+    
+    const updated = await prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        ...(name && { name }),
+        ...(phone !== undefined && { phone: phone || null }),
+        ...(email !== undefined && { email: email || null }),
+        ...(userId !== undefined && { userId: userId || null })
+      },
+      include: {
+        user: {
+          select: { email: true, name: true }
+        }
+      }
+    });
+    res.json(updated);
+  } catch (error: any) {
+    console.error("Error updating customer:", error);
+    
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+    
+    res.status(500).json({ error: error.message || "Failed to update customer" });
+  }
+});
+
+// Delete customer
+customersRouter.delete("/:customerId", async (req, res) => {
+  const { customerId } = req.params;
+  
+  try {
+    await prisma.customer.delete({
+      where: { id: customerId }
+    });
+    res.status(204).send();
+  } catch (error: any) {
+    console.error("Error deleting customer:", error);
+    
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+    
+    res.status(500).json({ error: error.message || "Failed to delete customer" });
+  }
+});
+
+// Address routes
 // List addresses
 customersRouter.get("/:customerId/addresses", async (req, res) => {
   const { customerId } = req.params;
