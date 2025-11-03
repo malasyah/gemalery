@@ -109,80 +109,95 @@ productsRouter.get("/public", async (req, res) => {
 });
 
 productsRouter.get("/recommended", async (_req, res) => {
-  // Get 3 products with highest stock (recommendation logic)
-  const products = await prisma.product.findMany({
-    include: {
-      category: true,
-      variants: {
-        where: { stock_on_hand: { gt: 0 } },
-        orderBy: [{ stock_on_hand: "desc" }, { price: "asc" }],
-        take: 1 // Get first variant with stock
-      }
-    },
-    orderBy: { createdAt: "desc" },
-    take: 3
-  });
-  
-  // Filter out products with no variants
-  const filtered = products.filter(p => p.variants.length > 0);
-  res.json(filtered);
+  try {
+    // Get 3 products with highest stock (recommendation logic)
+    const products = await prisma.product.findMany({
+      include: {
+        category: true,
+        variants: {
+          where: { stock_on_hand: { gt: 0 } },
+          orderBy: [{ stock_on_hand: "desc" }, { price: "asc" }],
+          take: 1 // Get first variant with stock
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 3
+    });
+    
+    // Filter out products with no variants
+    const filtered = products.filter(p => p.variants.length > 0);
+    res.json(filtered);
+  } catch (error: any) {
+    console.error("Error fetching recommended products:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch recommended products" });
+  }
 });
 
 productsRouter.get("/latest", async (_req, res) => {
-  const products = await prisma.product.findMany({
-    include: {
-      category: true,
-      variants: {
-        where: { stock_on_hand: { gt: 0 } },
-        orderBy: { price: "asc" },
-        take: 1
-      }
-    },
-    orderBy: { createdAt: "desc" },
-    take: 3
-  });
-  
-  const filtered = products.filter(p => p.variants.length > 0);
-  res.json(filtered);
+  try {
+    const products = await prisma.product.findMany({
+      include: {
+        category: true,
+        variants: {
+          where: { stock_on_hand: { gt: 0 } },
+          orderBy: { price: "asc" },
+          take: 1
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 3
+    });
+    
+    const filtered = products.filter(p => p.variants.length > 0);
+    res.json(filtered);
+  } catch (error: any) {
+    console.error("Error fetching latest products:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch latest products" });
+  }
 });
 
 productsRouter.get("/popular", async (_req, res) => {
-  // Get products ordered by most order items
-  const popularVariants = await prisma.orderItem.groupBy({
-    by: ["productVariantId"],
-    _count: { productVariantId: true },
-    orderBy: { _count: { productVariantId: "desc" } },
-    take: 3
-  });
-  
-  if (popularVariants.length === 0) {
-    return res.json([]);
-  }
-  
-  const variantIds = popularVariants.map(v => v.productVariantId);
-  const variants = await prisma.productVariant.findMany({
-    where: { id: { in: variantIds }, stock_on_hand: { gt: 0 } },
-    include: {
-      product: {
-        include: { category: true }
+  try {
+    // Get products ordered by most order items
+    const popularVariants = await prisma.orderItem.groupBy({
+      by: ["productVariantId"],
+      _count: { productVariantId: true },
+      orderBy: { _count: { productVariantId: "desc" } },
+      take: 3
+    });
+    
+    if (popularVariants.length === 0) {
+      return res.json([]);
+    }
+    
+    const variantIds = popularVariants.map(v => v.productVariantId);
+    const variants = await prisma.productVariant.findMany({
+      where: { id: { in: variantIds }, stock_on_hand: { gt: 0 } },
+      include: {
+        product: {
+          include: { category: true }
+        }
       }
-    }
-  });
-  
-  // Group by product and get unique products
-  const productMap = new Map();
-  variants.forEach(v => {
-    if (!productMap.has(v.productId)) {
-      productMap.set(v.productId, {
-        ...v.product,
-        variants: []
-      });
-    }
-    productMap.get(v.productId).variants.push(v);
-  });
-  
-  const products = Array.from(productMap.values());
-  res.json(products);
+    });
+    
+    // Group by product and get unique products
+    const productMap = new Map();
+    variants.forEach(v => {
+      if (!productMap.has(v.productId)) {
+        productMap.set(v.productId, {
+          ...v.product,
+          variants: []
+        });
+      }
+      productMap.get(v.productId).variants.push(v);
+    });
+    
+    const products = Array.from(productMap.values());
+    res.json(products);
+  } catch (error: any) {
+    console.error("Error fetching popular products:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch popular products" });
+  }
 });
 
 productsRouter.get("/categories", async (_req, res) => {

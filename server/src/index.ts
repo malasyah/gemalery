@@ -103,10 +103,22 @@ app.use("/", suppliersRouter);
 app.use("/", purchasesRouter);
 app.use("/", costsRouter);
 
+// Global error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: err.message || "Internal server error" });
+});
+
+// 404 handler
+app.use((_req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`API running on http://localhost:${port}`);
+  console.log(`CORS_ORIGIN: ${process.env.CORS_ORIGIN || "not set (allowing all)"}`);
 });
 
 
