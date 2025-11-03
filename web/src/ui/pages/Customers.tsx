@@ -57,10 +57,16 @@ export function Customers(): React.JSX.Element {
       
       console.log("Creating customer with payload:", payload);
       
-      await api("/customers", {
+      const result = await api<any>("/customers", {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      
+      // Show warning if user ID not found (customer still created)
+      if (result && result.warning) {
+        alert(`⚠️ ${result.warning}\n\nCustomer berhasil dibuat!`);
+      }
+      
       setForm({ name: "", phone: "", email: "", userId: "" });
       await load();
     } catch (e: any) {
@@ -170,13 +176,18 @@ export function Customers(): React.JSX.Element {
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>User ID</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+              User ID <span style={{ fontSize: "0.85em", color: "#666", fontWeight: "normal" }}>(opsional)</span>
+            </label>
             <input
               style={{ width: "100%", padding: 8 }}
               value={form.userId}
               onChange={(e) => setForm({ ...form, userId: e.target.value })}
-              placeholder="User ID untuk login (opsional)"
+              placeholder="User ID untuk link ke akun (kosongkan jika tidak ada)"
             />
+            <div style={{ fontSize: "0.85em", color: "#666", marginTop: 4 }}>
+              Jika User ID tidak ditemukan, customer tetap akan dibuat tanpa link ke user account.
+            </div>
           </div>
         </div>
         <button

@@ -56,6 +56,8 @@ customersRouter.post("/", async (req, res) => {
   
   try {
     const finalUserId = userId && userId.trim() ? userId.trim() : null;
+    let actualUserId = null;
+    let warning = null;
     
     // If userId is provided, check if user exists and doesn't already have a customer
     if (finalUserId) {
@@ -64,15 +66,17 @@ customersRouter.post("/", async (req, res) => {
         where: { id: finalUserId }
       });
       if (!user) {
-        return res.status(400).json({ error: "User not found" });
-      }
-      
-      // Check if user already has a customer
-      const existingCustomer = await prisma.customer.findUnique({
-        where: { userId: finalUserId }
-      });
-      if (existingCustomer) {
-        return res.status(400).json({ error: "User already has a customer record" });
+        // User not found - create customer without userId but include warning
+        warning = `User ID "${finalUserId}" tidak ditemukan. Customer dibuat tanpa link ke user account.`;
+      } else {
+        // Check if user already has a customer
+        const existingCustomer = await prisma.customer.findUnique({
+          where: { userId: finalUserId }
+        });
+        if (existingCustomer) {
+          return res.status(400).json({ error: `User ID "${finalUserId}" sudah memiliki customer record.` });
+        }
+        actualUserId = finalUserId;
       }
     }
     
@@ -81,15 +85,22 @@ customersRouter.post("/", async (req, res) => {
         name: name.trim(),
         phone: phone && phone.trim() ? phone.trim() : null,
         email: email && email.trim() ? email.trim() : null,
-        userId: finalUserId
+        userId: actualUserId
       },
       include: {
-        user: finalUserId ? {
+        user: actualUserId ? {
           select: { email: true, name: true }
         } : false
       }
     });
-    res.status(201).json(customer);
+    
+    // Include warning in response if user not found
+    const response: any = customer;
+    if (warning) {
+      response.warning = warning;
+    }
+    
+    res.status(201).json(response);
   } catch (error: any) {
     console.error("Error creating customer:", error);
     console.error("Error details:", { code: error.code, meta: error.meta });
