@@ -11,13 +11,8 @@ customersRouter.get("/", async (_req, res) => {
         user: {
           select: { email: true, name: true }
         },
-        addresses: {
-          where: { is_deleted: false },
-          take: 1,
-          orderBy: { is_default: "desc" }
-        },
         _count: {
-          select: { orders: true }
+          select: { orders: true, addresses: true }
         }
       },
       orderBy: { createdAt: "desc" }
