@@ -55,11 +55,20 @@ export function Products(): React.JSX.Element {
   useEffect(() => { load().catch(() => undefined); }, []);
 
   function addVariantToProduct() {
-    if (!variantForm.sku) {
-      alert("SKU is required");
+    if (!variantForm.sku || !variantForm.sku.trim()) {
+      alert("SKU wajib diisi");
       return;
     }
-    setProductVariants([...productVariants, { ...variantForm }]);
+    
+    const skuTrimmed = variantForm.sku.trim();
+    
+    // Check for duplicate SKU in current product variants
+    if (productVariants.some(v => v.sku && v.sku.trim() === skuTrimmed)) {
+      alert(`SKU "${skuTrimmed}" sudah ada dalam daftar variant. Setiap variant harus memiliki SKU yang unik.`);
+      return;
+    }
+    
+    setProductVariants([...productVariants, { ...variantForm, sku: skuTrimmed }]);
     setVariantForm({
       sku: "",
       barcode: "",
@@ -123,8 +132,16 @@ export function Products(): React.JSX.Element {
       await load();
     } catch (e: any) {
       console.error("Error creating product:", e);
-      const errorMsg = e.message || (typeof e === "string" ? e : JSON.stringify(e));
-      alert("Error saat membuat produk: " + errorMsg);
+      // Try to parse error message from response
+      let errorMsg = "Terjadi kesalahan saat membuat produk";
+      try {
+        const errorText = e.message || String(e);
+        const errorObj = JSON.parse(errorText);
+        errorMsg = errorObj.error || errorMsg;
+      } catch {
+        errorMsg = e.message || String(e) || errorMsg;
+      }
+      alert(errorMsg);
     }
   }
 
@@ -162,10 +179,21 @@ export function Products(): React.JSX.Element {
   }
 
   async function createVariant(productId: string) {
-    if (!variantFormForExisting.sku) {
-      alert("SKU is required");
+    if (!variantFormForExisting.sku || !variantFormForExisting.sku.trim()) {
+      alert("SKU wajib diisi");
       return;
     }
+    
+    // Check for duplicate SKU in existing product variants (client-side validation)
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      const skuTrimmed = variantFormForExisting.sku.trim();
+      if (product.variants.some(v => v.sku && v.sku.trim() === skuTrimmed)) {
+        alert(`SKU "${skuTrimmed}" sudah ada dalam produk ini. Setiap variant harus memiliki SKU yang unik.`);
+        return;
+      }
+    }
+    
     try {
       await api(`/products/${productId}/variants`, {
         method: "POST",
@@ -184,19 +212,42 @@ export function Products(): React.JSX.Element {
       setAddingVariantToProduct(null);
       await load();
     } catch (e: any) {
-      alert("Error: " + (e.message || String(e)));
+      // Try to parse error message from response
+      let errorMsg = "Terjadi kesalahan saat menambahkan variant";
+      try {
+        const errorText = e.message || String(e);
+        const errorObj = JSON.parse(errorText);
+        errorMsg = errorObj.error || errorMsg;
+      } catch {
+        errorMsg = e.message || String(e) || errorMsg;
+      }
+      alert(errorMsg);
     }
   }
 
   async function updateVariant(variantId: string) {
-    if (!editVForm.sku) {
-      alert("SKU is required");
+    if (!editVForm.sku || !editVForm.sku.trim()) {
+      alert("SKU wajib diisi");
       return;
     }
-    await api(`/products/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(editVForm) });
-    setEditingVariant(null);
-    setEditVForm({});
-    await load();
+    
+    try {
+      await api(`/products/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(editVForm) });
+      setEditingVariant(null);
+      setEditVForm({});
+      await load();
+    } catch (e: any) {
+      // Try to parse error message from response
+      let errorMsg = "Terjadi kesalahan saat memperbarui variant";
+      try {
+        const errorText = e.message || String(e);
+        const errorObj = JSON.parse(errorText);
+        errorMsg = errorObj.error || errorMsg;
+      } catch {
+        errorMsg = e.message || String(e) || errorMsg;
+      }
+      alert(errorMsg);
+    }
   }
 
   async function deleteVariant(variantId: string) {
@@ -734,3 +785,4 @@ export function Products(): React.JSX.Element {
     </div>
   );
 }
+
