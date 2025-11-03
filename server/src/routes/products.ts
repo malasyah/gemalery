@@ -16,10 +16,16 @@ productsRouter.post("/", async (req, res) => {
   }
 
   // Validate variants
+  const skuSet = new Set<string>();
   for (const variant of variants) {
     if (!variant.sku) {
       return res.status(400).json({ error: "Variant SKU is required" });
     }
+    const sku = String(variant.sku).trim();
+    if (skuSet.has(sku)) {
+      return res.status(400).json({ error: `Duplicate SKU found: ${sku}. Each variant in a product must have a unique SKU.` });
+    }
+    skuSet.add(sku);
   }
 
   // Create product with variants in transaction
@@ -80,8 +86,62 @@ productsRouter.get("/", async (_req, res) => {
 productsRouter.patch("/variants/:variantId", async (req, res) => {
   const { variantId } = req.params;
   const data = req.body || {};
-  const updated = await prisma.productVariant.update({ where: { id: variantId }, data });
-  res.json(updated);
+  
+  try {
+    // Get current variant to check productId
+    const currentVariant = await prisma.productVariant.findUnique({
+      where: { id: variantId },
+      select: { productId: true, sku: true }
+    });
+    
+    if (!currentVariant) {
+      return res.status(404).json({ error: "Variant not found" });
+    }
+    
+    // If SKU is being updated, check for duplicates in the same product
+    if (data.sku && data.sku !== currentVariant.sku) {
+      const skuTrimmed = String(data.sku).trim();
+      const existingVariant = await prisma.productVariant.findFirst({
+        where: {
+          productId: currentVariant.productId,
+          sku: skuTrimmed,
+          id: { not: variantId } // Exclude current variant
+        }
+      });
+      
+      if (existingVariant) {
+        return res.status(400).json({ error: `SKU "${skuTrimmed}" already exists in this product. Each variant must have a unique SKU.` });
+      }
+      
+      data.sku = skuTrimmed;
+    }
+    
+    // Normalize numeric fields
+    if (data.weight_gram !== undefined) data.weight_gram = Number(data.weight_gram) || 0;
+    if (data.stock_on_hand !== undefined) data.stock_on_hand = Number(data.stock_on_hand) || 0;
+    if (data.price !== undefined) data.price = Number(data.price) || 0;
+    if (data.default_purchase_price !== undefined) data.default_purchase_price = Number(data.default_purchase_price) || 0;
+    if (data.default_operational_cost_unit !== undefined) data.default_operational_cost_unit = Number(data.default_operational_cost_unit) || 0;
+    if (data.cogs_current !== undefined) data.cogs_current = Number(data.cogs_current) || 0;
+    if (data.barcode !== undefined) {
+      data.barcode = data.barcode && String(data.barcode).trim() ? String(data.barcode).trim() : null;
+    }
+    
+    const updated = await prisma.productVariant.update({ where: { id: variantId }, data });
+    res.json(updated);
+  } catch (error: any) {
+    console.error("Error updating variant:", error);
+    
+    if (error.code === "P2002") {
+      return res.status(400).json({ error: "SKU already exists in another product" });
+    }
+    
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Variant not found" });
+    }
+    
+    res.status(500).json({ error: error.message || "Failed to update variant" });
+  }
 });
 
 productsRouter.get("/variants/:variantId", async (req, res) => {
@@ -113,10 +173,24 @@ productsRouter.post("/:productId/variants", async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
     
+    const skuTrimmed = String(sku).trim();
+    
+    // Check if SKU already exists in this product
+    const existingVariant = await prisma.productVariant.findFirst({
+      where: {
+        productId,
+        sku: skuTrimmed
+      }
+    });
+    
+    if (existingVariant) {
+      return res.status(400).json({ error: `SKU "${skuTrimmed}" already exists in this product. Each variant must have a unique SKU.` });
+    }
+    
     const variant = await prisma.productVariant.create({
       data: {
         productId,
-        sku: String(sku).trim(),
+        sku: skuTrimmed,
         barcode: barcode && String(barcode).trim() ? String(barcode).trim() : null,
         weight_gram: Number(weight_gram) || 0,
         stock_on_hand: Number(stock_on_hand) || 0,
@@ -131,7 +205,7 @@ productsRouter.post("/:productId/variants", async (req, res) => {
     console.error("Error creating variant:", error);
     
     if (error.code === "P2002") {
-      return res.status(400).json({ error: "SKU already exists" });
+      return res.status(400).json({ error: "SKU already exists in another product" });
     }
     
     res.status(500).json({ error: error.message || "Failed to create variant" });
