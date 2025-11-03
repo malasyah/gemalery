@@ -12,14 +12,32 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
     ...init
   });
-  if (!res.ok) throw new Error(await res.text());
   
-  // Handle 204 No Content or empty response
+  // Handle 204 No Content or empty response early
   if (res.status === 204 || res.headers.get("content-length") === "0") {
     return undefined as T;
   }
   
+  // Read response text once
   const text = await res.text();
+  
+  if (!res.ok) {
+    // Try to parse error response as JSON
+    let errorMessage = text || `HTTP ${res.status} ${res.statusText}`;
+    try {
+      if (text) {
+        const errorObj = JSON.parse(text);
+        errorMessage = errorObj.error || errorObj.message || text;
+      }
+    } catch {
+      // If not JSON, use text as is
+    }
+    const error = new Error(errorMessage) as Error & { status?: number; response?: string };
+    error.status = res.status;
+    error.response = text;
+    throw error;
+  }
+  
   if (!text) return undefined as T;
   
   try {

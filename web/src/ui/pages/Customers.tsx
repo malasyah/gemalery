@@ -55,6 +55,8 @@ export function Customers(): React.JSX.Element {
       if (form.email.trim()) payload.email = form.email.trim();
       if (form.userId.trim()) payload.userId = form.userId.trim();
       
+      console.log("Creating customer with payload:", payload);
+      
       await api("/customers", {
         method: "POST",
         body: JSON.stringify(payload),
@@ -62,14 +64,8 @@ export function Customers(): React.JSX.Element {
       setForm({ name: "", phone: "", email: "", userId: "" });
       await load();
     } catch (e: any) {
-      let errorMsg = "Terjadi kesalahan saat membuat customer";
-      try {
-        const errorText = e.message || String(e);
-        const errorObj = JSON.parse(errorText);
-        errorMsg = errorObj.error || errorMsg;
-      } catch {
-        errorMsg = e.message || String(e) || errorMsg;
-      }
+      console.error("Error creating customer:", e);
+      const errorMsg = e.message || "Terjadi kesalahan saat membuat customer";
       alert(errorMsg);
     }
   }
