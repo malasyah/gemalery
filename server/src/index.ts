@@ -31,16 +31,26 @@ app.use(helmet());
 // CORS configuration
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    const allowedOrigins = process.env.CORS_ORIGIN?.split(",").map(o => o.trim()) || ["*"];
+    const corsOrigin = process.env.CORS_ORIGIN || "";
+    const allowedOrigins = corsOrigin ? corsOrigin.split(",").map(o => o.trim()).filter(o => o) : ["*"];
+    
+    console.log("CORS check - Origin:", origin, "Allowed:", allowedOrigins);
     
     // Allow requests with no origin (mobile apps, Postman, etc)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log("CORS: Allowing request with no origin");
+      return callback(null, true);
+    }
     
-    // Allow all origins if "*" is in the list
-    if (allowedOrigins.includes("*")) return callback(null, true);
+    // Allow all origins if "*" is in the list or no CORS_ORIGIN is set
+    if (allowedOrigins.includes("*") || allowedOrigins.length === 0) {
+      console.log("CORS: Allowing all origins");
+      return callback(null, true);
+    }
     
     // Check if origin is allowed
     if (allowedOrigins.includes(origin)) {
+      console.log("CORS: Origin allowed");
       callback(null, true);
     } else {
       console.warn(`CORS blocked origin: ${origin}. Allowed: ${allowedOrigins.join(", ")}`);

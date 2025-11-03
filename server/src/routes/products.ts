@@ -101,20 +101,41 @@ productsRouter.delete("/variants/:variantId", async (req, res) => {
 productsRouter.post("/:productId/variants", async (req, res) => {
   const { productId } = req.params;
   const { sku, barcode, weight_gram, stock_on_hand, price, default_purchase_price, default_operational_cost_unit, cogs_current } = req.body || {};
-  const variant = await prisma.productVariant.create({
-    data: {
-      productId,
-      sku,
-      barcode,
-      weight_gram,
-      stock_on_hand,
-      price,
-      default_purchase_price,
-      default_operational_cost_unit,
-      cogs_current
+  
+  if (!sku) {
+    return res.status(400).json({ error: "SKU is required" });
+  }
+  
+  try {
+    // Check if product exists
+    const product = await prisma.product.findUnique({ where: { id: productId } });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
     }
-  });
-  res.status(201).json(variant);
+    
+    const variant = await prisma.productVariant.create({
+      data: {
+        productId,
+        sku: String(sku).trim(),
+        barcode: barcode && String(barcode).trim() ? String(barcode).trim() : null,
+        weight_gram: Number(weight_gram) || 0,
+        stock_on_hand: Number(stock_on_hand) || 0,
+        price: Number(price) || 0,
+        default_purchase_price: Number(default_purchase_price) || 0,
+        default_operational_cost_unit: Number(default_operational_cost_unit) || 0,
+        cogs_current: Number(cogs_current) || 0,
+      }
+    });
+    res.status(201).json(variant);
+  } catch (error: any) {
+    console.error("Error creating variant:", error);
+    
+    if (error.code === "P2002") {
+      return res.status(400).json({ error: "SKU already exists" });
+    }
+    
+    res.status(500).json({ error: error.message || "Failed to create variant" });
+  }
 });
 
 // Generic product routes (must be after variant routes)
