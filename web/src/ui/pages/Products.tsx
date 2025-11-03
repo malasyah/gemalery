@@ -36,6 +36,17 @@ export function Products(): React.JSX.Element {
     default_operational_cost_unit: 0,
     cogs_current: 0,
   });
+  const [addingVariantToProduct, setAddingVariantToProduct] = useState<string | null>(null);
+  const [variantFormForExisting, setVariantFormForExisting] = useState<VariantForm>({
+    sku: "",
+    barcode: "",
+    weight_gram: 0,
+    stock_on_hand: 0,
+    price: 0,
+    default_purchase_price: 0,
+    default_operational_cost_unit: 0,
+    cogs_current: 0,
+  });
 
   async function load() {
     const list = await api<(Product & { variants: Variant[] })[]>("/products");
@@ -136,17 +147,31 @@ export function Products(): React.JSX.Element {
     }
   }
 
+  function startAddVariant(productId: string) {
+    setAddingVariantToProduct(productId);
+    setVariantFormForExisting({
+      sku: "",
+      barcode: "",
+      weight_gram: 0,
+      stock_on_hand: 0,
+      price: 0,
+      default_purchase_price: 0,
+      default_operational_cost_unit: 0,
+      cogs_current: 0,
+    });
+  }
+
   async function createVariant(productId: string) {
-    if (!variantForm.sku) {
+    if (!variantFormForExisting.sku) {
       alert("SKU is required");
       return;
     }
     try {
       await api(`/products/${productId}/variants`, {
         method: "POST",
-        body: JSON.stringify(variantForm),
+        body: JSON.stringify(variantFormForExisting),
       });
-      setVariantForm({
+      setVariantFormForExisting({
         sku: "",
         barcode: "",
         weight_gram: 0,
@@ -156,6 +181,7 @@ export function Products(): React.JSX.Element {
         default_operational_cost_unit: 0,
         cogs_current: 0,
       });
+      setAddingVariantToProduct(null);
       await load();
     } catch (e: any) {
       alert("Error: " + (e.message || String(e)));
@@ -474,12 +500,113 @@ export function Products(): React.JSX.Element {
               <div style={{ marginTop: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <strong>Variants ({p.variants.length})</strong>
-                  {!editingProduct && (
-                    <button onClick={() => createVariant(p.id)} style={{ fontSize: "0.9em", padding: "4px 8px" }}>
+                  {!editingProduct && !addingVariantToProduct && (
+                    <button onClick={() => startAddVariant(p.id)} style={{ fontSize: "0.9em", padding: "4px 8px" }}>
                       + Tambah Variant Baru
                     </button>
                   )}
                 </div>
+                
+                {/* Form untuk tambah variant ke produk yang sudah ada */}
+                {addingVariantToProduct === p.id && (
+                  <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 4, marginBottom: 12, backgroundColor: "#f0f8ff" }}>
+                    <h5 style={{ marginTop: 0, marginBottom: 12 }}>Tambah Variant Baru</h5>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 8 }}>
+                      <div>
+                        <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                          SKU <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          style={{ width: "100%", padding: 6 }}
+                          value={variantFormForExisting.sku}
+                          onChange={(e) => setVariantFormForExisting({ ...variantFormForExisting, sku: e.target.value })}
+                          placeholder="Kode SKU"
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>Barcode</label>
+                        <input
+                          style={{ width: "100%", padding: 6 }}
+                          value={variantFormForExisting.barcode}
+                          onChange={(e) => setVariantFormForExisting({ ...variantFormForExisting, barcode: e.target.value })}
+                          placeholder="Barcode (opsional)"
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                          Berat (gram) <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          type="number"
+                          style={{ width: "100%", padding: 6 }}
+                          value={variantFormForExisting.weight_gram}
+                          onChange={(e) => setVariantFormForExisting({ ...variantFormForExisting, weight_gram: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                          Stok <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          type="number"
+                          style={{ width: "100%", padding: 6 }}
+                          value={variantFormForExisting.stock_on_hand}
+                          onChange={(e) => setVariantFormForExisting({ ...variantFormForExisting, stock_on_hand: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                          Harga Jual <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          type="number"
+                          style={{ width: "100%", padding: 6 }}
+                          value={variantFormForExisting.price}
+                          onChange={(e) => setVariantFormForExisting({ ...variantFormForExisting, price: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                          Harga Beli Default
+                        </label>
+                        <input
+                          type="number"
+                          style={{ width: "100%", padding: 6 }}
+                          value={variantFormForExisting.default_purchase_price}
+                          onChange={(e) => setVariantFormForExisting({ ...variantFormForExisting, default_purchase_price: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                          Biaya Operasional/Unit
+                        </label>
+                        <input
+                          type="number"
+                          style={{ width: "100%", padding: 6 }}
+                          value={variantFormForExisting.default_operational_cost_unit}
+                          onChange={(e) => setVariantFormForExisting({ ...variantFormForExisting, default_operational_cost_unit: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>COGS Saat Ini</label>
+                        <input
+                          type="number"
+                          style={{ width: "100%", padding: 6 }}
+                          value={variantFormForExisting.cogs_current}
+                          onChange={(e) => setVariantFormForExisting({ ...variantFormForExisting, cogs_current: Number(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => createVariant(p.id)} style={{ padding: "6px 12px", backgroundColor: "#28a745", color: "white" }}>
+                        Simpan Variant
+                      </button>
+                      <button onClick={() => setAddingVariantToProduct(null)} style={{ padding: "6px 12px" }}>
+                        Batal
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {p.variants.length === 0 ? (
                   <p style={{ color: "#999", fontStyle: "italic" }}>Tidak ada variant. Tambahkan variant baru.</p>
                 ) : (
