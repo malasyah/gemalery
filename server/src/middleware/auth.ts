@@ -22,11 +22,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-export function requireRole(...roles: JwtUser["role"][]) {
+export function requireRole(roles: JwtUser["role"][] | JwtUser["role"]) {
   return (req: Request, res: Response, next: NextFunction) => {
     const user = (req as any).user as JwtUser | undefined;
     if (!user) return res.status(401).json({ error: "Unauthorized" });
-    if (!roles.includes(user.role)) return res.status(403).json({ error: "Forbidden" });
+    const allowedRoles = Array.isArray(roles) ? roles : [roles];
+    if (!allowedRoles.includes(user.role)) return res.status(403).json({ error: "Forbidden" });
     next();
   };
 }

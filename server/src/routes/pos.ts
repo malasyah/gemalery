@@ -11,7 +11,7 @@ const posOrderSchema = z.object({
 });
 
 // Staff POS-only create offline order
-posRouter.post("/orders", requireAuth, requireRole("staff", "admin"), async (req, res) => {
+posRouter.post("/orders", requireAuth, requireRole(["staff", "admin"]), async (req, res) => {
   const parsed = posOrderSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { items, customerId } = parsed.data;
