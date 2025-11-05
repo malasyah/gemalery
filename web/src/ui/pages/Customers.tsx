@@ -1,6 +1,62 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api.js";
 
+// Helper function to compress image
+function compressImage(file: File, maxWidth: number = 1920, quality: number = 0.8): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Failed to get canvas context"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Failed to compress image"));
+              return;
+            }
+            const compressedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          },
+          file.type,
+          quality
+        );
+      };
+      img.onerror = reject;
+      if (typeof e.target?.result === "string") {
+        img.src = e.target.result;
+      } else {
+        reject(new Error("Failed to read file"));
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 // Helper function to convert file to base64
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -211,10 +267,12 @@ export function Customers(): React.JSX.Element {
                 }
                 
                 try {
-                  const base64 = await fileToBase64(file);
+                  // Compress image first (max 1920px width, 80% quality)
+                  const compressedFile = await compressImage(file, 1920, 0.8);
+                  const base64 = await fileToBase64(compressedFile);
                   setForm({ ...form, photo: base64 });
                 } catch (error) {
-                  console.error("Error converting file to base64:", error);
+                  console.error("Error processing file:", error);
                   alert("Error saat memproses file");
                 }
                 e.target.value = "";
