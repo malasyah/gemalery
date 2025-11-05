@@ -65,6 +65,7 @@ model Customer {
   name      String
   phone     String?
   email     String?
+  photo     String?
   addresses CustomerAddress[]
   orders    Order[]
   createdAt DateTime          @default(now())

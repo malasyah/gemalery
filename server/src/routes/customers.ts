@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
+import { requireAuth } from "../middleware/auth.js";
 
 export const customersRouter = Router();
 
@@ -46,37 +47,27 @@ customersRouter.get("/:customerId", async (req, res) => {
   res.json(customer);
 });
 
-// Create customer
-customersRouter.post("/", async (req, res) => {
-  const { name, phone, email, userId } = req.body || {};
+// Create customer (admin/staff only - auto-set userId from logged-in user)
+customersRouter.post("/", requireAuth, async (req, res) => {
+  const { name, phone, email } = req.body || {};
+  const loggedInUser = (req as any).user;
   
   if (!name || !name.trim()) {
     return res.status(400).json({ error: "Customer name is required" });
   }
   
   try {
-    const finalUserId = userId && userId.trim() ? userId.trim() : null;
-    let actualUserId = null;
-    let warning = null;
+    // Auto-set userId from logged-in user (admin/staff)
+    // Only set userId if logged-in user is admin or staff
+    let actualUserId: string | null = null;
     
-    // If userId is provided, check if user exists and doesn't already have a customer
-    if (finalUserId) {
-      // Check if user exists
-      const user = await prisma.user.findUnique({
-        where: { id: finalUserId }
+    if (loggedInUser && (loggedInUser.role === "admin" || loggedInUser.role === "staff")) {
+      // Check if user already has a customer
+      const existingCustomer = await prisma.customer.findUnique({
+        where: { userId: loggedInUser.id }
       });
-      if (!user) {
-        // User not found - create customer without userId but include warning
-        warning = `User ID "${finalUserId}" tidak ditemukan. Customer dibuat tanpa link ke user account.`;
-      } else {
-        // Check if user already has a customer
-        const existingCustomer = await prisma.customer.findUnique({
-          where: { userId: finalUserId }
-        });
-        if (existingCustomer) {
-          return res.status(400).json({ error: `User ID "${finalUserId}" sudah memiliki customer record.` });
-        }
-        actualUserId = finalUserId;
+      if (!existingCustomer) {
+        actualUserId = loggedInUser.id;
       }
     }
     
@@ -85,6 +76,7 @@ customersRouter.post("/", async (req, res) => {
         name: name.trim(),
         phone: phone && phone.trim() ? phone.trim() : null,
         email: email && email.trim() ? email.trim() : null,
+        photo: req.body.photo && req.body.photo.trim() ? req.body.photo.trim() : null,
         userId: actualUserId
       },
       include: {
@@ -94,13 +86,7 @@ customersRouter.post("/", async (req, res) => {
       }
     });
     
-    // Include warning in response if user not found
-    const response: any = customer;
-    if (warning) {
-      response.warning = warning;
-    }
-    
-    res.status(201).json(response);
+    res.status(201).json(customer);
   } catch (error: any) {
     console.error("Error creating customer:", error);
     console.error("Error details:", { code: error.code, meta: error.meta });
@@ -120,7 +106,7 @@ customersRouter.post("/", async (req, res) => {
 // Update customer
 customersRouter.patch("/:customerId", async (req, res) => {
   const { customerId } = req.params;
-  const { name, phone, email, userId } = req.body || {};
+  const { name, phone, email, photo, userId } = req.body || {};
   
   try {
     // If userId is being updated, check if it's available
@@ -142,6 +128,7 @@ customersRouter.patch("/:customerId", async (req, res) => {
         ...(name && { name }),
         ...(phone !== undefined && { phone: phone || null }),
         ...(email !== undefined && { email: email || null }),
+        ...(photo !== undefined && { photo: photo || null }),
         ...(userId !== undefined && { userId: userId || null })
       },
       include: {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
-type Product = { id: string; name: string; description?: string };
+type Product = { id: string; name: string; description?: string; images?: string[] | null };
 type Variant = {
   id?: string;
   productId?: string;
@@ -13,17 +13,18 @@ type Variant = {
   default_purchase_price: number;
   default_operational_cost_unit: number;
   cogs_current: number;
+  images?: string[] | null;
 };
 
 type VariantForm = Omit<Variant, "id" | "productId">;
 
 export function Products(): React.JSX.Element {
   const [products, setProducts] = useState<(Product & { variants: Variant[] })[]>([]);
-  const [pForm, setPForm] = useState({ name: "", description: "" });
+  const [pForm, setPForm] = useState({ name: "", description: "", images: [] as string[] });
   const [productVariants, setProductVariants] = useState<VariantForm[]>([]);
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [editingVariant, setEditingVariant] = useState<string | null>(null);
-  const [editPForm, setEditPForm] = useState({ name: "", description: "" });
+  const [editPForm, setEditPForm] = useState({ name: "", description: "", images: [] as string[] });
   const [editVForm, setEditVForm] = useState<Partial<Variant>>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ productId: string; productName: string } | null>(null);
   const [variantForm, setVariantForm] = useState<VariantForm>({
@@ -35,6 +36,7 @@ export function Products(): React.JSX.Element {
     default_purchase_price: 0,
     default_operational_cost_unit: 0,
     cogs_current: 0,
+    images: [],
   });
   const [addingVariantToProduct, setAddingVariantToProduct] = useState<string | null>(null);
   const [variantFormForExisting, setVariantFormForExisting] = useState<VariantForm>({
@@ -46,13 +48,92 @@ export function Products(): React.JSX.Element {
     default_purchase_price: 0,
     default_operational_cost_unit: 0,
     cogs_current: 0,
+    images: [],
   });
 
   async function load() {
     const list = await api<(Product & { variants: Variant[] })[]>("/products");
-    setProducts(list);
+    // Normalize images to array format
+    const normalized = list.map(p => ({
+      ...p,
+      images: p.images ? (Array.isArray(p.images) ? p.images : [p.images]) : null,
+      variants: p.variants.map(v => ({
+        ...v,
+        images: v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : null,
+      })),
+    }));
+    setProducts(normalized);
   }
   useEffect(() => { load().catch(() => undefined); }, []);
+
+  // Helper functions for images
+  function addProductImage(url: string) {
+    if (!url.trim()) return;
+    setPForm({ ...pForm, images: [...pForm.images, url.trim()] });
+  }
+
+  function removeProductImage(index: number) {
+    setPForm({ ...pForm, images: pForm.images.filter((_, i) => i !== index) });
+  }
+
+  function addEditProductImage(url: string) {
+    if (!url.trim()) return;
+    setEditPForm({ ...editPForm, images: [...editPForm.images, url.trim()] });
+  }
+
+  function removeEditProductImage(index: number) {
+    setEditPForm({ ...editPForm, images: editPForm.images.filter((_, i) => i !== index) });
+  }
+
+  function addVariantImage(url: string) {
+    if (!url.trim()) return;
+    setVariantForm({ ...variantForm, images: [...(variantForm.images || []), url.trim()] });
+  }
+
+  function removeVariantImage(index: number) {
+    setVariantForm({ ...variantForm, images: (variantForm.images || []).filter((_, i) => i !== index) });
+  }
+
+  function addVariantImageForExisting(url: string) {
+    if (!url.trim()) return;
+    setVariantFormForExisting({ ...variantFormForExisting, images: [...(variantFormForExisting.images || []), url.trim()] });
+  }
+
+  function removeVariantImageForExisting(index: number) {
+    setVariantFormForExisting({ ...variantFormForExisting, images: (variantFormForExisting.images || []).filter((_, i) => i !== index) });
+  }
+
+  function updateVariantImageInProduct(index: number, imageIndex: number, url: string) {
+    const updated = [...productVariants];
+    const images = updated[index].images || [];
+    images[imageIndex] = url.trim();
+    updated[index].images = images;
+    setProductVariants(updated);
+  }
+
+  function removeVariantImageInProduct(variantIndex: number, imageIndex: number) {
+    const updated = [...productVariants];
+    updated[variantIndex].images = (updated[variantIndex].images || []).filter((_, i) => i !== imageIndex);
+    setProductVariants(updated);
+  }
+
+  function addVariantImageInProduct(variantIndex: number, url: string) {
+    if (!url.trim()) return;
+    const updated = [...productVariants];
+    updated[variantIndex].images = [...(updated[variantIndex].images || []), url.trim()];
+    setProductVariants(updated);
+  }
+
+  function addEditVariantImage(url: string) {
+    if (!url.trim()) return;
+    const images = editVForm.images || [];
+    setEditVForm({ ...editVForm, images: [...images, url.trim()] });
+  }
+
+  function removeEditVariantImage(index: number) {
+    const images = editVForm.images || [];
+    setEditVForm({ ...editVForm, images: images.filter((_, i) => i !== index) });
+  }
 
   function addVariantToProduct() {
     if (!variantForm.sku || !variantForm.sku.trim()) {
@@ -80,6 +161,7 @@ export function Products(): React.JSX.Element {
       default_purchase_price: 0,
       default_operational_cost_unit: 0,
       cogs_current: 0,
+      images: [],
     });
   }
 
@@ -107,7 +189,11 @@ export function Products(): React.JSX.Element {
       const payload = {
         name: pForm.name,
         description: pForm.description,
-        variants: productVariants,
+        images: pForm.images.length > 0 ? pForm.images : null,
+        variants: productVariants.map(v => ({
+          ...v,
+          images: v.images && v.images.length > 0 ? v.images : null,
+        })),
       };
       
       console.log("Creating product with payload:", payload);
@@ -119,7 +205,7 @@ export function Products(): React.JSX.Element {
       
       console.log("Product created:", result);
       
-      setPForm({ name: "", description: "" });
+      setPForm({ name: "", description: "", images: [] });
       setProductVariants([]);
       setVariantForm({
         sku: "",
@@ -130,6 +216,7 @@ export function Products(): React.JSX.Element {
         default_purchase_price: 0,
         default_operational_cost_unit: 0,
         cogs_current: 0,
+        images: [],
       });
       await load();
     } catch (e: any) {
@@ -149,7 +236,11 @@ export function Products(): React.JSX.Element {
 
   async function updateProduct(productId: string) {
     if (!editPForm.name) return;
-    await api(`/products/${productId}`, { method: "PATCH", body: JSON.stringify(editPForm) });
+    const payload = {
+      ...editPForm,
+      images: editPForm.images.length > 0 ? editPForm.images : null,
+    };
+    await api(`/products/${productId}`, { method: "PATCH", body: JSON.stringify(payload) });
     setEditingProduct(null);
     await load();
   }
@@ -177,6 +268,7 @@ export function Products(): React.JSX.Element {
       default_purchase_price: 0,
       default_operational_cost_unit: 0,
       cogs_current: 0,
+      images: [],
     });
   }
 
@@ -199,9 +291,13 @@ export function Products(): React.JSX.Element {
     }
     
     try {
+      const payload = {
+        ...variantFormForExisting,
+        images: variantFormForExisting.images && variantFormForExisting.images.length > 0 ? variantFormForExisting.images : null,
+      };
       await api(`/products/${productId}/variants`, {
         method: "POST",
-        body: JSON.stringify(variantFormForExisting),
+        body: JSON.stringify(payload),
       });
       setVariantFormForExisting({
         sku: "",
@@ -212,6 +308,7 @@ export function Products(): React.JSX.Element {
         default_purchase_price: 0,
         default_operational_cost_unit: 0,
         cogs_current: 0,
+        images: [],
       });
       setAddingVariantToProduct(null);
       await load();
@@ -236,7 +333,11 @@ export function Products(): React.JSX.Element {
     }
     
     try {
-      await api(`/products/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(editVForm) });
+      const payload = {
+        ...editVForm,
+        images: editVForm.images && editVForm.images.length > 0 ? editVForm.images : null,
+      };
+      await api(`/products/variants/${variantId}`, { method: "PATCH", body: JSON.stringify(payload) });
       setEditingVariant(null);
       setEditVForm({});
       await load();
@@ -262,12 +363,14 @@ export function Products(): React.JSX.Element {
 
   function startEditProduct(p: Product) {
     setEditingProduct(p.id);
-    setEditPForm({ name: p.name, description: p.description || "" });
+    const images = p.images ? (Array.isArray(p.images) ? p.images : [p.images]) : [];
+    setEditPForm({ name: p.name, description: p.description || "", images });
   }
 
   function startEditVariant(v: Variant) {
     setEditingVariant(v.id!);
-    setEditVForm({ ...v });
+    const images = v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : [];
+    setEditVForm({ ...v, images });
   }
 
   return (
@@ -344,6 +447,65 @@ export function Products(): React.JSX.Element {
               onChange={(e) => setPForm({ ...pForm, description: e.target.value })}
               placeholder="Masukkan deskripsi produk"
             />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+              Gambar Produk (URL)
+            </label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input
+                type="text"
+                style={{ flex: 1, padding: 8 }}
+                placeholder="Masukkan URL gambar (contoh: https://example.com/image.jpg)"
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") {
+                    const input = e.currentTarget as HTMLInputElement;
+                    addProductImage(input.value);
+                    input.value = "";
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
+                  if (input) {
+                    addProductImage(input.value);
+                    input.value = "";
+                  }
+                }}
+                style={{ padding: "8px 16px" }}
+              >
+                Tambah
+              </button>
+            </div>
+            {pForm.images.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                {pForm.images.map((url, idx) => (
+                  <div key={idx} style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
+                    <img src={url} alt={`Product ${idx + 1}`} style={{ width: 100, height: 100, objectFit: "cover" }} />
+                    <button
+                      type="button"
+                      onClick={() => removeProductImage(idx)}
+                      style={{
+                        position: "absolute",
+                        top: 4,
+                        right: 4,
+                        background: "#dc3545",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "50%",
+                        width: 24,
+                        height: 24,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Variants untuk Product Baru */}
@@ -440,6 +602,66 @@ export function Products(): React.JSX.Element {
                   />
                 </div>
               </div>
+              <div style={{ marginTop: 8, marginBottom: 8 }}>
+                <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                  Gambar Variant (URL)
+                </label>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <input
+                    type="text"
+                    style={{ flex: 1, padding: 6 }}
+                    placeholder="Masukkan URL gambar variant"
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        const input = e.currentTarget as HTMLInputElement;
+                        addVariantImage(input.value);
+                        input.value = "";
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
+                      if (input) {
+                        addVariantImage(input.value);
+                        input.value = "";
+                      }
+                    }}
+                    style={{ padding: "6px 12px" }}
+                  >
+                    Tambah
+                  </button>
+                </div>
+                {(variantForm.images || []).length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {variantForm.images?.map((url, idx) => (
+                      <div key={idx} style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
+                        <img src={url} alt={`Variant ${idx + 1}`} style={{ width: 80, height: 80, objectFit: "cover" }} />
+                        <button
+                          type="button"
+                          onClick={() => removeVariantImage(idx)}
+                          style={{
+                            position: "absolute",
+                            top: 4,
+                            right: 4,
+                            background: "#dc3545",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "50%",
+                            width: 20,
+                            height: 20,
+                            cursor: "pointer",
+                            fontSize: "12px",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button onClick={addVariantToProduct} style={{ padding: "6px 12px" }}>
                 + Tambah Variant
               </button>
@@ -527,6 +749,65 @@ export function Products(): React.JSX.Element {
                       value={editPForm.description}
                       onChange={(e) => setEditPForm({ ...editPForm, description: e.target.value })}
                     />
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                      Gambar Produk (URL)
+                    </label>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                      <input
+                        type="text"
+                        style={{ flex: 1, padding: 8 }}
+                        placeholder="Masukkan URL gambar"
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            const input = e.currentTarget as HTMLInputElement;
+                            addEditProductImage(input.value);
+                            input.value = "";
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
+                          if (input) {
+                            addEditProductImage(input.value);
+                            input.value = "";
+                          }
+                        }}
+                        style={{ padding: "8px 16px" }}
+                      >
+                        Tambah
+                      </button>
+                    </div>
+                    {editPForm.images.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {editPForm.images.map((url, idx) => (
+                          <div key={idx} style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
+                            <img src={url} alt={`Product ${idx + 1}`} style={{ width: 100, height: 100, objectFit: "cover" }} />
+                            <button
+                              type="button"
+                              onClick={() => removeEditProductImage(idx)}
+                              style={{
+                                position: "absolute",
+                                top: 4,
+                                right: 4,
+                                background: "#dc3545",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "50%",
+                                width: 24,
+                                height: 24,
+                                cursor: "pointer",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => updateProduct(p.id)}>Simpan</button>
@@ -652,6 +933,66 @@ export function Products(): React.JSX.Element {
                         />
                       </div>
                     </div>
+                    <div style={{ marginTop: 8, marginBottom: 8 }}>
+                      <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                        Gambar Variant (URL)
+                      </label>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                        <input
+                          type="text"
+                          style={{ flex: 1, padding: 6 }}
+                          placeholder="Masukkan URL gambar variant"
+                          onKeyPress={(e) => {
+                            if (e.key === "Enter") {
+                              const input = e.currentTarget as HTMLInputElement;
+                              addVariantImageForExisting(input.value);
+                              input.value = "";
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
+                            if (input) {
+                              addVariantImageForExisting(input.value);
+                              input.value = "";
+                            }
+                          }}
+                          style={{ padding: "6px 12px" }}
+                        >
+                          Tambah
+                        </button>
+                      </div>
+                      {(variantFormForExisting.images || []).length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {variantFormForExisting.images?.map((url, idx) => (
+                            <div key={idx} style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
+                              <img src={url} alt={`Variant ${idx + 1}`} style={{ width: 80, height: 80, objectFit: "cover" }} />
+                              <button
+                                type="button"
+                                onClick={() => removeVariantImageForExisting(idx)}
+                                style={{
+                                  position: "absolute",
+                                  top: 4,
+                                  right: 4,
+                                  background: "#dc3545",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "50%",
+                                  width: 20,
+                                  height: 20,
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button onClick={() => createVariant(p.id)} style={{ padding: "6px 12px", backgroundColor: "#28a745", color: "white" }}>
                         Simpan Variant
@@ -753,6 +1094,66 @@ export function Products(): React.JSX.Element {
                                   onChange={(e) => setEditVForm({ ...editVForm, cogs_current: Number(e.target.value) })}
                                 />
                               </div>
+                            </div>
+                            <div style={{ marginTop: 8, marginBottom: 8 }}>
+                              <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                                Gambar Variant (URL)
+                              </label>
+                              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                                <input
+                                  type="text"
+                                  style={{ flex: 1, padding: 6 }}
+                                  placeholder="Masukkan URL gambar variant"
+                                  onKeyPress={(e) => {
+                                    if (e.key === "Enter") {
+                                      const input = e.currentTarget as HTMLInputElement;
+                                      addEditVariantImage(input.value);
+                                      input.value = "";
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
+                                    if (input) {
+                                      addEditVariantImage(input.value);
+                                      input.value = "";
+                                    }
+                                  }}
+                                  style={{ padding: "6px 12px" }}
+                                >
+                                  Tambah
+                                </button>
+                              </div>
+                              {(editVForm.images || []).length > 0 && (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                  {editVForm.images?.map((url, idx) => (
+                                    <div key={idx} style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
+                                      <img src={url} alt={`Variant ${idx + 1}`} style={{ width: 80, height: 80, objectFit: "cover" }} />
+                                      <button
+                                        type="button"
+                                        onClick={() => removeEditVariantImage(idx)}
+                                        style={{
+                                          position: "absolute",
+                                          top: 4,
+                                          right: 4,
+                                          background: "#dc3545",
+                                          color: "white",
+                                          border: "none",
+                                          borderRadius: "50%",
+                                          width: 20,
+                                          height: 20,
+                                          cursor: "pointer",
+                                          fontSize: "12px",
+                                        }}
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <div style={{ display: "flex", gap: 8 }}>
                               <button onClick={() => updateVariant(v.id!)}>Simpan</button>
