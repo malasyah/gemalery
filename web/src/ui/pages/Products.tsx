@@ -66,6 +66,49 @@ export function Products(): React.JSX.Element {
   }
   useEffect(() => { load().catch(() => undefined); }, []);
 
+  // Helper function to convert file to base64
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+        } else {
+          reject(new Error("Failed to convert file to base64"));
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Helper function to handle file selection
+  async function handleFileSelect(files: FileList | null, callback: (url: string) => void) {
+    if (!files || files.length === 0) return;
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith("image/")) {
+        alert(`File "${file.name}" bukan gambar. Hanya file gambar yang diizinkan.`);
+        continue;
+      }
+      
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`File "${file.name}" terlalu besar. Maksimal 5MB.`);
+        continue;
+      }
+      
+      try {
+        const base64 = await fileToBase64(file);
+        callback(base64);
+      } catch (error) {
+        console.error("Error converting file to base64:", error);
+        alert(`Error saat memproses file "${file.name}"`);
+      }
+    }
+  }
+
   // Helper functions for images
   function addProductImage(url: string) {
     if (!url.trim()) return;
@@ -450,35 +493,22 @@ export function Products(): React.JSX.Element {
           </div>
           <div>
             <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
-              Gambar Produk (URL)
+              Gambar Produk
             </label>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <input
-                type="text"
-                style={{ flex: 1, padding: 8 }}
-                placeholder="Masukkan URL gambar (contoh: https://example.com/image.jpg)"
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    const input = e.currentTarget as HTMLInputElement;
-                    addProductImage(input.value);
-                    input.value = "";
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={(e) => {
-                  const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
-                  if (input) {
-                    addProductImage(input.value);
-                    input.value = "";
-                  }
-                }}
-                style={{ padding: "8px 16px" }}
-              >
-                Tambah
-              </button>
-            </div>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => {
+                handleFileSelect(e.target.files, addProductImage);
+                // Reset input so same file can be selected again
+                e.target.value = "";
+              }}
+              style={{ width: "100%", padding: 8, marginBottom: 8 }}
+            />
+            <p style={{ fontSize: "0.85em", color: "#666", marginBottom: 8 }}>
+              Pilih satu atau lebih gambar dari device Anda (maksimal 5MB per file)
+            </p>
             {pForm.images.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
                 {pForm.images.map((url, idx) => (
@@ -604,35 +634,21 @@ export function Products(): React.JSX.Element {
               </div>
               <div style={{ marginTop: 8, marginBottom: 8 }}>
                 <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
-                  Gambar Variant (URL)
+                  Gambar Variant
                 </label>
-                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                  <input
-                    type="text"
-                    style={{ flex: 1, padding: 6 }}
-                    placeholder="Masukkan URL gambar variant"
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") {
-                        const input = e.currentTarget as HTMLInputElement;
-                        addVariantImage(input.value);
-                        input.value = "";
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
-                      if (input) {
-                        addVariantImage(input.value);
-                        input.value = "";
-                      }
-                    }}
-                    style={{ padding: "6px 12px" }}
-                  >
-                    Tambah
-                  </button>
-                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    handleFileSelect(e.target.files, addVariantImage);
+                    e.target.value = "";
+                  }}
+                  style={{ width: "100%", padding: 6, marginBottom: 8 }}
+                />
+                <p style={{ fontSize: "0.75em", color: "#666", marginBottom: 8 }}>
+                  Pilih gambar dari device (maksimal 5MB per file)
+                </p>
                 {(variantForm.images || []).length > 0 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {variantForm.images?.map((url, idx) => (
@@ -752,35 +768,21 @@ export function Products(): React.JSX.Element {
                   </div>
                   <div style={{ marginBottom: 8 }}>
                     <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
-                      Gambar Produk (URL)
+                      Gambar Produk
                     </label>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                      <input
-                        type="text"
-                        style={{ flex: 1, padding: 8 }}
-                        placeholder="Masukkan URL gambar"
-                        onKeyPress={(e) => {
-                          if (e.key === "Enter") {
-                            const input = e.currentTarget as HTMLInputElement;
-                            addEditProductImage(input.value);
-                            input.value = "";
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
-                          if (input) {
-                            addEditProductImage(input.value);
-                            input.value = "";
-                          }
-                        }}
-                        style={{ padding: "8px 16px" }}
-                      >
-                        Tambah
-                      </button>
-                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        handleFileSelect(e.target.files, addEditProductImage);
+                        e.target.value = "";
+                      }}
+                      style={{ width: "100%", padding: 8, marginBottom: 8 }}
+                    />
+                    <p style={{ fontSize: "0.85em", color: "#666", marginBottom: 8 }}>
+                      Pilih gambar dari device Anda (maksimal 5MB per file)
+                    </p>
                     {editPForm.images.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                         {editPForm.images.map((url, idx) => (
@@ -815,20 +817,34 @@ export function Products(): React.JSX.Element {
                   </div>
                 </div>
               ) : (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div>
-                    <strong style={{ fontSize: "1.2em" }}>{p.name}</strong>
-                    {p.description && <span style={{ color: "#666", marginLeft: 8 }}>— {p.description}</span>}
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div>
+                      <strong style={{ fontSize: "1.2em" }}>{p.name}</strong>
+                      {p.description && <span style={{ color: "#666", marginLeft: 8 }}>— {p.description}</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => startEditProduct(p)}>Edit Produk</button>
+                      <button
+                        onClick={() => setDeleteConfirm({ productId: p.id, productName: p.name })}
+                        style={{ background: "#dc3545", color: "white" }}
+                      >
+                        Hapus Produk
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => startEditProduct(p)}>Edit Produk</button>
-                    <button
-                      onClick={() => setDeleteConfirm({ productId: p.id, productName: p.name })}
-                      style={{ background: "#dc3545", color: "white" }}
-                    >
-                      Hapus Produk
-                    </button>
-                  </div>
+                  {/* Product Images Display */}
+                  {p.images && Array.isArray(p.images) && p.images.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {p.images.map((img, idx) => (
+                          <div key={idx} style={{ border: "1px solid #ddd", borderRadius: 4, overflow: "hidden", width: 100, height: 100 }}>
+                            <img src={img} alt={`${p.name} ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -935,35 +951,21 @@ export function Products(): React.JSX.Element {
                     </div>
                     <div style={{ marginTop: 8, marginBottom: 8 }}>
                       <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
-                        Gambar Variant (URL)
+                        Gambar Variant
                       </label>
-                      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                        <input
-                          type="text"
-                          style={{ flex: 1, padding: 6 }}
-                          placeholder="Masukkan URL gambar variant"
-                          onKeyPress={(e) => {
-                            if (e.key === "Enter") {
-                              const input = e.currentTarget as HTMLInputElement;
-                              addVariantImageForExisting(input.value);
-                              input.value = "";
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
-                            if (input) {
-                              addVariantImageForExisting(input.value);
-                              input.value = "";
-                            }
-                          }}
-                          style={{ padding: "6px 12px" }}
-                        >
-                          Tambah
-                        </button>
-                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          handleFileSelect(e.target.files, addVariantImageForExisting);
+                          e.target.value = "";
+                        }}
+                        style={{ width: "100%", padding: 6, marginBottom: 8 }}
+                      />
+                      <p style={{ fontSize: "0.75em", color: "#666", marginBottom: 8 }}>
+                        Pilih gambar dari device (maksimal 5MB per file)
+                      </p>
                       {(variantFormForExisting.images || []).length > 0 && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                           {variantFormForExisting.images?.map((url, idx) => (
@@ -1097,35 +1099,21 @@ export function Products(): React.JSX.Element {
                             </div>
                             <div style={{ marginTop: 8, marginBottom: 8 }}>
                               <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
-                                Gambar Variant (URL)
+                                Gambar Variant
                               </label>
-                              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                                <input
-                                  type="text"
-                                  style={{ flex: 1, padding: 6 }}
-                                  placeholder="Masukkan URL gambar variant"
-                                  onKeyPress={(e) => {
-                                    if (e.key === "Enter") {
-                                      const input = e.currentTarget as HTMLInputElement;
-                                      addEditVariantImage(input.value);
-                                      input.value = "";
-                                    }
-                                  }}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
-                                    if (input) {
-                                      addEditVariantImage(input.value);
-                                      input.value = "";
-                                    }
-                                  }}
-                                  style={{ padding: "6px 12px" }}
-                                >
-                                  Tambah
-                                </button>
-                              </div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => {
+                                  handleFileSelect(e.target.files, addEditVariantImage);
+                                  e.target.value = "";
+                                }}
+                                style={{ width: "100%", padding: 6, marginBottom: 8 }}
+                              />
+                              <p style={{ fontSize: "0.75em", color: "#666", marginBottom: 8 }}>
+                                Pilih gambar dari device (maksimal 5MB per file)
+                              </p>
                               {(editVForm.images || []).length > 0 && (
                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                                   {editVForm.images?.map((url, idx) => (
@@ -1161,21 +1149,33 @@ export function Products(): React.JSX.Element {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div>
-                              <strong>{v.sku}</strong> | {v.weight_gram}g | Stok: {v.stock_on_hand} | 
-                              Harga: Rp {Number(v.price).toLocaleString("id-ID")} | 
-                              COGS: Rp {Number(v.cogs_current).toLocaleString("id-ID")}
+                          <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                              <div>
+                                <strong>{v.sku}</strong> | {v.weight_gram}g | Stok: {v.stock_on_hand} | 
+                                Harga: Rp {Number(v.price).toLocaleString("id-ID")} | 
+                                COGS: Rp {Number(v.cogs_current).toLocaleString("id-ID")}
+                              </div>
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button onClick={() => startEditVariant(v)}>Edit</button>
+                                <button
+                                  onClick={() => deleteVariant(v.id!)}
+                                  style={{ background: "#dc3545", color: "white" }}
+                                >
+                                  Hapus
+                                </button>
+                              </div>
                             </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              <button onClick={() => startEditVariant(v)}>Edit</button>
-                              <button
-                                onClick={() => deleteVariant(v.id!)}
-                                style={{ background: "#dc3545", color: "white" }}
-                              >
-                                Hapus
-                              </button>
-                            </div>
+                            {/* Variant Images Display */}
+                            {v.images && Array.isArray(v.images) && v.images.length > 0 && (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                {v.images.map((img, idx) => (
+                                  <div key={idx} style={{ border: "1px solid #ddd", borderRadius: 4, overflow: "hidden", width: 80, height: 80 }}>
+                                    <img src={img} alt={`${v.sku} ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </li>

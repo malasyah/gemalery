@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api.js";
 
+// Helper function to convert file to base64
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Failed to convert file to base64"));
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 type Customer = {
   id: string;
   name: string;
@@ -173,15 +189,41 @@ export function Customers(): React.JSX.Element {
           </div>
           <div>
             <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
-              Foto Customer (URL)
+              Foto Customer
             </label>
             <input
-              type="text"
-              style={{ width: "100%", padding: 8 }}
-              value={form.photo}
-              onChange={(e) => setForm({ ...form, photo: e.target.value })}
-              placeholder="https://example.com/photo.jpg (opsional)"
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                
+                if (!file.type.startsWith("image/")) {
+                  alert("File yang dipilih bukan gambar. Hanya file gambar yang diizinkan.");
+                  e.target.value = "";
+                  return;
+                }
+                
+                if (file.size > 5 * 1024 * 1024) {
+                  alert("File terlalu besar. Maksimal 5MB.");
+                  e.target.value = "";
+                  return;
+                }
+                
+                try {
+                  const base64 = await fileToBase64(file);
+                  setForm({ ...form, photo: base64 });
+                } catch (error) {
+                  console.error("Error converting file to base64:", error);
+                  alert("Error saat memproses file");
+                }
+                e.target.value = "";
+              }}
+              style={{ width: "100%", padding: 8, marginBottom: 8 }}
             />
+            <p style={{ fontSize: "0.85em", color: "#666", marginBottom: 8 }}>
+              Pilih foto dari device Anda (maksimal 5MB, opsional)
+            </p>
             {form.photo && (
               <div style={{ marginTop: 8 }}>
                 <img src={form.photo} alt="Preview" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 4, border: "1px solid #ddd" }} />
@@ -247,15 +289,41 @@ export function Customers(): React.JSX.Element {
                       </div>
                       <div>
                         <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
-                          Foto Customer (URL)
+                          Foto Customer
                         </label>
                         <input
-                          type="text"
-                          style={{ width: "100%", padding: 8 }}
-                          value={editForm.photo}
-                          onChange={(e) => setEditForm({ ...editForm, photo: e.target.value })}
-                          placeholder="https://example.com/photo.jpg (opsional)"
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            
+                            if (!file.type.startsWith("image/")) {
+                              alert("File yang dipilih bukan gambar. Hanya file gambar yang diizinkan.");
+                              e.target.value = "";
+                              return;
+                            }
+                            
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert("File terlalu besar. Maksimal 5MB.");
+                              e.target.value = "";
+                              return;
+                            }
+                            
+                            try {
+                              const base64 = await fileToBase64(file);
+                              setEditForm({ ...editForm, photo: base64 });
+                            } catch (error) {
+                              console.error("Error converting file to base64:", error);
+                              alert("Error saat memproses file");
+                            }
+                            e.target.value = "";
+                          }}
+                          style={{ width: "100%", padding: 8, marginBottom: 8 }}
                         />
+                        <p style={{ fontSize: "0.85em", color: "#666", marginBottom: 8 }}>
+                          Pilih foto dari device Anda (maksimal 5MB, opsional)
+                        </p>
                         {editForm.photo && (
                           <div style={{ marginTop: 8 }}>
                             <img src={editForm.photo} alt="Preview" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 4, border: "1px solid #ddd" }} />
