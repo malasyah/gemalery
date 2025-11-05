@@ -19,9 +19,12 @@
 
 ## 3) Web (Vercel)
 - Import web/ subdirectory as project.
+- **Important:** Set Root Directory to `web` in Vercel project settings.
+- Ensure `web/vercel.json` exists with SPA rewrite rules.
 - Env vars:
   - VITE_API_BASE = https://your-staging-api.railway.app
 - Build & deploy.
+- See `web/VERCEL-DEPLOY.md` for troubleshooting.
 
 ## 4) Production
 - Repeat for production branch URLs/secrets.

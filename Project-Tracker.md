@@ -97,3 +97,26 @@ Testing & Code Quality:
 - Created example unit tests for products API and React components
 - Added test scripts: test, test:ui, test:coverage, lint, lint:fix, format, format:check
 
+Customer-Facing UI:
+- Added ProductCategory model and categoryId to Product
+- Added images field to ProductVariant for variant-specific images
+- Added ContactMessage model for contact form submissions
+- Created migration `20251103054429_add_customer_ui_features` for schema changes
+- Applied migration to production database (Neon Production)
+- Created migration guide documentation (infra/MIGRATION-GUIDE.md)
+
+Admin UI Improvements:
+- Refactored AdminApp to use React Router instead of tab-based navigation
+- Added AdminProtectedRoute for role-based access control (admin/staff only)
+- Created AdminNavigation component with Tailwind CSS styling
+- Admin routes: `/admin/dashboard`, `/admin/products`, `/admin/customers`, `/admin/pos`, `/admin/checkout`, `/admin/addresses`
+- Added "View Site" button to navigate back to customer-facing UI
+- Responsive design with mobile menu support
+- Created admin UI documentation (web/src/ui/admin/README.md)
+
+Next priorities:
+- Test customer-facing UI routes (recommended, latest, popular products)
+- Verify category filtering and search functionality
+- Test contact form submission
+- Test admin UI routes and role-based access control
+
