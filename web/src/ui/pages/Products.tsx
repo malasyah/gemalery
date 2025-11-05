@@ -82,12 +82,20 @@ export function Products(): React.JSX.Element {
     });
   }
 
-  // Helper function to handle file selection
-  async function handleFileSelect(files: FileList | null, callback: (url: string) => void) {
+  // Helper function to handle file selection for products (max 5 images)
+  async function handleProductFileSelect(files: FileList | null, currentImages: string[], callback: (url: string) => void) {
     if (!files || files.length === 0) return;
     
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    const remainingSlots = 5 - currentImages.length;
+    if (remainingSlots <= 0) {
+      alert("Maksimal 5 gambar untuk produk. Hapus gambar yang ada terlebih dahulu jika ingin menambah gambar baru.");
+      return;
+    }
+    
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+    
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i];
       if (!file.type.startsWith("image/")) {
         alert(`File "${file.name}" bukan gambar. Hanya file gambar yang diizinkan.`);
         continue;
@@ -107,11 +115,49 @@ export function Products(): React.JSX.Element {
         alert(`Error saat memproses file "${file.name}"`);
       }
     }
+    
+    if (files.length > remainingSlots) {
+      alert(`Hanya ${remainingSlots} gambar yang ditambahkan. Maksimal 5 gambar untuk produk.`);
+    }
+  }
+
+  // Helper function to handle file selection for variants (only 1 image)
+  async function handleVariantFileSelect(files: FileList | null, currentImages: string[] | null, callback: (url: string) => void) {
+    if (!files || files.length === 0) return;
+    
+    if (currentImages && currentImages.length > 0) {
+      alert("Variant hanya boleh memiliki 1 gambar. Hapus gambar yang ada terlebih dahulu jika ingin menggantinya.");
+      return;
+    }
+    
+    const file = files[0];
+    if (!file.type.startsWith("image/")) {
+      alert(`File "${file.name}" bukan gambar. Hanya file gambar yang diizinkan.`);
+      return;
+    }
+    
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert(`File "${file.name}" terlalu besar. Maksimal 5MB.`);
+      return;
+    }
+    
+    try {
+      const base64 = await fileToBase64(file);
+      callback(base64);
+    } catch (error) {
+      console.error("Error converting file to base64:", error);
+      alert(`Error saat memproses file "${file.name}"`);
+    }
   }
 
   // Helper functions for images
   function addProductImage(url: string) {
     if (!url.trim()) return;
+    if (pForm.images.length >= 5) {
+      alert("Maksimal 5 gambar untuk produk. Hapus gambar yang ada terlebih dahulu jika ingin menambah gambar baru.");
+      return;
+    }
     setPForm({ ...pForm, images: [...pForm.images, url.trim()] });
   }
 
@@ -121,6 +167,10 @@ export function Products(): React.JSX.Element {
 
   function addEditProductImage(url: string) {
     if (!url.trim()) return;
+    if (editPForm.images.length >= 5) {
+      alert("Maksimal 5 gambar untuk produk. Hapus gambar yang ada terlebih dahulu jika ingin menambah gambar baru.");
+      return;
+    }
     setEditPForm({ ...editPForm, images: [...editPForm.images, url.trim()] });
   }
 
@@ -130,20 +180,28 @@ export function Products(): React.JSX.Element {
 
   function addVariantImage(url: string) {
     if (!url.trim()) return;
-    setVariantForm({ ...variantForm, images: [...(variantForm.images || []), url.trim()] });
+    if (variantForm.images && variantForm.images.length > 0) {
+      alert("Variant hanya boleh memiliki 1 gambar. Hapus gambar yang ada terlebih dahulu jika ingin menggantinya.");
+      return;
+    }
+    setVariantForm({ ...variantForm, images: [url.trim()] });
   }
 
-  function removeVariantImage(index: number) {
-    setVariantForm({ ...variantForm, images: (variantForm.images || []).filter((_, i) => i !== index) });
+  function removeVariantImage() {
+    setVariantForm({ ...variantForm, images: [] });
   }
 
   function addVariantImageForExisting(url: string) {
     if (!url.trim()) return;
-    setVariantFormForExisting({ ...variantFormForExisting, images: [...(variantFormForExisting.images || []), url.trim()] });
+    if (variantFormForExisting.images && variantFormForExisting.images.length > 0) {
+      alert("Variant hanya boleh memiliki 1 gambar. Hapus gambar yang ada terlebih dahulu jika ingin menggantinya.");
+      return;
+    }
+    setVariantFormForExisting({ ...variantFormForExisting, images: [url.trim()] });
   }
 
-  function removeVariantImageForExisting(index: number) {
-    setVariantFormForExisting({ ...variantFormForExisting, images: (variantFormForExisting.images || []).filter((_, i) => i !== index) });
+  function removeVariantImageForExisting() {
+    setVariantFormForExisting({ ...variantFormForExisting, images: [] });
   }
 
   function updateVariantImageInProduct(index: number, imageIndex: number, url: string) {
@@ -500,14 +558,14 @@ export function Products(): React.JSX.Element {
               accept="image/*"
               multiple
               onChange={(e) => {
-                handleFileSelect(e.target.files, addProductImage);
+                handleProductFileSelect(e.target.files, pForm.images, addProductImage);
                 // Reset input so same file can be selected again
                 e.target.value = "";
               }}
               style={{ width: "100%", padding: 8, marginBottom: 8 }}
             />
             <p style={{ fontSize: "0.85em", color: "#666", marginBottom: 8 }}>
-              Pilih satu atau lebih gambar dari device Anda (maksimal 5MB per file)
+              Pilih gambar dari device Anda (maksimal 5 gambar, 5MB per file). Gambar pertama akan menjadi gambar utama.
             </p>
             {pForm.images.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
@@ -639,42 +697,39 @@ export function Products(): React.JSX.Element {
                 <input
                   type="file"
                   accept="image/*"
-                  multiple
                   onChange={(e) => {
-                    handleFileSelect(e.target.files, addVariantImage);
+                    handleVariantFileSelect(e.target.files, variantForm.images || [], addVariantImage);
                     e.target.value = "";
                   }}
                   style={{ width: "100%", padding: 6, marginBottom: 8 }}
                 />
                 <p style={{ fontSize: "0.75em", color: "#666", marginBottom: 8 }}>
-                  Pilih gambar dari device (maksimal 5MB per file)
+                  Pilih 1 gambar dari device (maksimal 5MB)
                 </p>
-                {(variantForm.images || []).length > 0 && (
+                {variantForm.images && variantForm.images.length > 0 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {variantForm.images?.map((url, idx) => (
-                      <div key={idx} style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
-                        <img src={url} alt={`Variant ${idx + 1}`} style={{ width: 80, height: 80, objectFit: "cover" }} />
-                        <button
-                          type="button"
-                          onClick={() => removeVariantImage(idx)}
-                          style={{
-                            position: "absolute",
-                            top: 4,
-                            right: 4,
-                            background: "#dc3545",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "50%",
-                            width: 20,
-                            height: 20,
-                            cursor: "pointer",
-                            fontSize: "12px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                    <div style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
+                      <img src={variantForm.images[0]} alt="Variant" style={{ width: 80, height: 80, objectFit: "cover" }} />
+                      <button
+                        type="button"
+                        onClick={() => removeVariantImage()}
+                        style={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          background: "#dc3545",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "50%",
+                          width: 20,
+                          height: 20,
+                          cursor: "pointer",
+                          fontSize: "12px",
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -775,13 +830,13 @@ export function Products(): React.JSX.Element {
                       accept="image/*"
                       multiple
                       onChange={(e) => {
-                        handleFileSelect(e.target.files, addEditProductImage);
+                        handleProductFileSelect(e.target.files, editPForm.images, addEditProductImage);
                         e.target.value = "";
                       }}
                       style={{ width: "100%", padding: 8, marginBottom: 8 }}
                     />
                     <p style={{ fontSize: "0.85em", color: "#666", marginBottom: 8 }}>
-                      Pilih gambar dari device Anda (maksimal 5MB per file)
+                      Pilih gambar dari device Anda (maksimal 5 gambar, 5MB per file). Gambar pertama akan menjadi gambar utama.
                     </p>
                     {editPForm.images.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -836,12 +891,26 @@ export function Products(): React.JSX.Element {
                   {/* Product Images Display */}
                   {p.images && Array.isArray(p.images) && p.images.length > 0 && (
                     <div style={{ marginBottom: 12 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {p.images.map((img, idx) => (
-                          <div key={idx} style={{ border: "1px solid #ddd", borderRadius: 4, overflow: "hidden", width: 100, height: 100 }}>
-                            <img src={img} alt={`${p.name} ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-start" }}>
+                        {/* Main Image (index 0) - larger with label */}
+                        <div style={{ position: "relative" }}>
+                          <div style={{ border: "2px solid #28a745", borderRadius: 4, overflow: "hidden", width: 120, height: 120 }}>
+                            <img src={p.images[0]} alt={`${p.name} - Gambar Utama`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           </div>
-                        ))}
+                          <div style={{ fontSize: "0.7em", color: "#28a745", marginTop: 4, textAlign: "center", fontWeight: "bold" }}>
+                            Gambar Utama
+                          </div>
+                        </div>
+                        {/* Other images */}
+                        {p.images.length > 1 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {p.images.slice(1).map((img, idx) => (
+                              <div key={idx + 1} style={{ border: "1px solid #ddd", borderRadius: 4, overflow: "hidden", width: 100, height: 100 }}>
+                                <img src={img} alt={`${p.name} ${idx + 2}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -956,42 +1025,39 @@ export function Products(): React.JSX.Element {
                       <input
                         type="file"
                         accept="image/*"
-                        multiple
                         onChange={(e) => {
-                          handleFileSelect(e.target.files, addVariantImageForExisting);
+                          handleVariantFileSelect(e.target.files, variantFormForExisting.images || [], addVariantImageForExisting);
                           e.target.value = "";
                         }}
                         style={{ width: "100%", padding: 6, marginBottom: 8 }}
                       />
                       <p style={{ fontSize: "0.75em", color: "#666", marginBottom: 8 }}>
-                        Pilih gambar dari device (maksimal 5MB per file)
+                        Pilih 1 gambar dari device (maksimal 5MB)
                       </p>
-                      {(variantFormForExisting.images || []).length > 0 && (
+                      {variantFormForExisting.images && variantFormForExisting.images.length > 0 && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          {variantFormForExisting.images?.map((url, idx) => (
-                            <div key={idx} style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
-                              <img src={url} alt={`Variant ${idx + 1}`} style={{ width: 80, height: 80, objectFit: "cover" }} />
-                              <button
-                                type="button"
-                                onClick={() => removeVariantImageForExisting(idx)}
-                                style={{
-                                  position: "absolute",
-                                  top: 4,
-                                  right: 4,
-                                  background: "#dc3545",
-                                  color: "white",
-                                  border: "none",
-                                  borderRadius: "50%",
-                                  width: 20,
-                                  height: 20,
-                                  cursor: "pointer",
-                                  fontSize: "12px",
-                                }}
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
+                          <div style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
+                            <img src={variantFormForExisting.images[0]} alt="Variant" style={{ width: 80, height: 80, objectFit: "cover" }} />
+                            <button
+                              type="button"
+                              onClick={() => removeVariantImageForExisting()}
+                              style={{
+                                position: "absolute",
+                                top: 4,
+                                right: 4,
+                                background: "#dc3545",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "50%",
+                                width: 20,
+                                height: 20,
+                                cursor: "pointer",
+                                fontSize: "12px",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1104,42 +1170,41 @@ export function Products(): React.JSX.Element {
                               <input
                                 type="file"
                                 accept="image/*"
-                                multiple
                                 onChange={(e) => {
-                                  handleFileSelect(e.target.files, addEditVariantImage);
+                                  handleVariantFileSelect(e.target.files, editVForm.images || [], (url) => {
+                                    setEditVForm({ ...editVForm, images: [url] });
+                                  });
                                   e.target.value = "";
                                 }}
                                 style={{ width: "100%", padding: 6, marginBottom: 8 }}
                               />
                               <p style={{ fontSize: "0.75em", color: "#666", marginBottom: 8 }}>
-                                Pilih gambar dari device (maksimal 5MB per file)
+                                Pilih 1 gambar dari device (maksimal 5MB)
                               </p>
-                              {(editVForm.images || []).length > 0 && (
+                              {editVForm.images && editVForm.images.length > 0 && (
                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                  {editVForm.images?.map((url, idx) => (
-                                    <div key={idx} style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
-                                      <img src={url} alt={`Variant ${idx + 1}`} style={{ width: 80, height: 80, objectFit: "cover" }} />
-                                      <button
-                                        type="button"
-                                        onClick={() => removeEditVariantImage(idx)}
-                                        style={{
-                                          position: "absolute",
-                                          top: 4,
-                                          right: 4,
-                                          background: "#dc3545",
-                                          color: "white",
-                                          border: "none",
-                                          borderRadius: "50%",
-                                          width: 20,
-                                          height: 20,
-                                          cursor: "pointer",
-                                          fontSize: "12px",
-                                        }}
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ))}
+                                  <div style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
+                                    <img src={editVForm.images[0]} alt="Variant" style={{ width: 80, height: 80, objectFit: "cover" }} />
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditVForm({ ...editVForm, images: [] })}
+                                      style={{
+                                        position: "absolute",
+                                        top: 4,
+                                        right: 4,
+                                        background: "#dc3545",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "50%",
+                                        width: 20,
+                                        height: 20,
+                                        cursor: "pointer",
+                                        fontSize: "12px",
+                                      }}
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -1169,11 +1234,9 @@ export function Products(): React.JSX.Element {
                             {/* Variant Images Display */}
                             {v.images && Array.isArray(v.images) && v.images.length > 0 && (
                               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                {v.images.map((img, idx) => (
-                                  <div key={idx} style={{ border: "1px solid #ddd", borderRadius: 4, overflow: "hidden", width: 80, height: 80 }}>
-                                    <img src={img} alt={`${v.sku} ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                                  </div>
-                                ))}
+                                <div style={{ border: "1px solid #ddd", borderRadius: 4, overflow: "hidden", width: 80, height: 80 }}>
+                                  <img src={v.images[0]} alt={v.sku} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                </div>
                               </div>
                             )}
                           </div>

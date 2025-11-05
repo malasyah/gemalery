@@ -23,19 +23,16 @@ type Product = {
 };
 
 function ProductCard({ product }: { product: Product }) {
+  // Get main image (first product image)
   const images = product.images ? (Array.isArray(product.images) ? product.images : [product.images]) : [];
-  const variantImages = product.variants[0]?.images 
-    ? (Array.isArray(product.variants[0].images) ? product.variants[0].images : [product.variants[0].images])
-    : [];
-  const allImages = [...images, ...variantImages];
-  const firstImage = allImages.length > 0 ? allImages[0] : "/placeholder.jpg";
+  const mainImage = images.length > 0 ? images[0] : "/placeholder.jpg";
   const price = product.variants.length > 0 ? Number(product.variants[0].price) : 0;
 
   return (
     <Link to={`/products/${product.id}`} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition">
       <div className="aspect-square bg-gray-100 relative">
-        {typeof firstImage === "string" ? (
-          <img src={firstImage} alt={product.name} className="w-full h-full object-cover" />
+        {typeof mainImage === "string" && mainImage !== "/placeholder.jpg" ? (
+          <img src={mainImage} alt={product.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400">No Image</div>
         )}

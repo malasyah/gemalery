@@ -7,6 +7,14 @@ export const productsRouter = Router();
 productsRouter.post("/", async (req, res) => {
   const { name, description, images, variants } = req.body || {};
   
+  // Validate product images (max 5)
+  if (images) {
+    const imageArray = Array.isArray(images) ? images : [images];
+    if (imageArray.length > 5) {
+      return res.status(400).json({ error: "Maksimal 5 gambar untuk produk" });
+    }
+  }
+  
   if (!name) {
     return res.status(400).json({ error: "Product name is required" });
   }
@@ -43,6 +51,14 @@ productsRouter.post("/", async (req, res) => {
       // Create all variants
       const createdVariants = await Promise.all(
         variants.map((v: any, index: number) => {
+          // Validate variant images (max 1)
+          if (v.images) {
+            const variantImageArray = Array.isArray(v.images) ? v.images : [v.images];
+            if (variantImageArray.length > 1) {
+              throw new Error(`Variant ${index + 1} (SKU: ${v.sku}) hanya boleh memiliki 1 gambar`);
+            }
+          }
+          
           const variantData = {
             productId: newProduct.id,
             sku: String(v.sku).trim(),
@@ -53,6 +69,7 @@ productsRouter.post("/", async (req, res) => {
             default_purchase_price: Number(v.default_purchase_price) || 0,
             default_operational_cost_unit: Number(v.default_operational_cost_unit) || 0,
             cogs_current: Number(v.cogs_current) || 0,
+            images: v.images ? (Array.isArray(v.images) ? (v.images.length > 0 ? v.images[0] : null) : v.images) : null,
           };
           
           console.log(`Creating variant ${index + 1}:`, variantData);
@@ -280,6 +297,18 @@ productsRouter.patch("/variants/:variantId", async (req, res) => {
       data.barcode = data.barcode && String(data.barcode).trim() ? String(data.barcode).trim() : null;
     }
     
+    // Validate variant images (max 1)
+    if (data.images !== undefined) {
+      if (data.images !== null) {
+        const variantImageArray = Array.isArray(data.images) ? data.images : [data.images];
+        if (variantImageArray.length > 1) {
+          return res.status(400).json({ error: "Variant hanya boleh memiliki 1 gambar" });
+        }
+        // Normalize to single image or null
+        data.images = variantImageArray.length > 0 ? variantImageArray[0] : null;
+      }
+    }
+    
     const updated = await prisma.productVariant.update({ where: { id: variantId }, data });
     res.json(updated);
   } catch (error: any) {
@@ -313,10 +342,20 @@ productsRouter.delete("/variants/:variantId", async (req, res) => {
 // Product-specific routes
 productsRouter.post("/:productId/variants", async (req, res) => {
   const { productId } = req.params;
-  const { sku, barcode, weight_gram, stock_on_hand, price, default_purchase_price, default_operational_cost_unit, cogs_current } = req.body || {};
+  const { sku, barcode, weight_gram, stock_on_hand, price, default_purchase_price, default_operational_cost_unit, cogs_current, images } = req.body || {};
   
   if (!sku) {
     return res.status(400).json({ error: "SKU is required" });
+  }
+  
+  // Validate variant images (max 1)
+  let normalizedImages = null;
+  if (images) {
+    const variantImageArray = Array.isArray(images) ? images : [images];
+    if (variantImageArray.length > 1) {
+      return res.status(400).json({ error: "Variant hanya boleh memiliki 1 gambar" });
+    }
+    normalizedImages = variantImageArray.length > 0 ? variantImageArray[0] : null;
   }
   
   try {
@@ -350,6 +389,7 @@ productsRouter.post("/:productId/variants", async (req, res) => {
         default_purchase_price: Number(default_purchase_price) || 0,
         default_operational_cost_unit: Number(default_operational_cost_unit) || 0,
         cogs_current: Number(cogs_current) || 0,
+        images: normalizedImages,
       }
     });
     res.status(201).json(variant);
@@ -368,6 +408,17 @@ productsRouter.post("/:productId/variants", async (req, res) => {
 productsRouter.patch("/:productId", async (req, res) => {
   const { productId } = req.params;
   const data = req.body || {};
+  
+  // Validate product images (max 5)
+  if (data.images !== undefined) {
+    if (data.images !== null) {
+      const imageArray = Array.isArray(data.images) ? data.images : [data.images];
+      if (imageArray.length > 5) {
+        return res.status(400).json({ error: "Maksimal 5 gambar untuk produk" });
+      }
+    }
+  }
+  
   const updated = await prisma.product.update({ where: { id: productId }, data });
   res.json(updated);
 });
