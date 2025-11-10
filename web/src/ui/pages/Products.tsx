@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
-type Product = { id: string; name: string; description?: string; images?: string[] | null };
+type Product = { id: string; name: string; description?: string; images?: string[] | null; categoryId?: string | null; category?: Category | null };
 type Variant = {
   id?: string;
   productId?: string;
@@ -40,7 +40,9 @@ export function Products(): React.JSX.Element {
   const [productVariants, setProductVariants] = useState<VariantForm[]>([]);
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [editingVariant, setEditingVariant] = useState<string | null>(null);
-  const [editPForm, setEditPForm] = useState({ name: "", description: "", images: [] as string[] });
+  const [editPForm, setEditPForm] = useState({ name: "", description: "", images: [] as string[], categoryId: "" });
+  const [editingProductCategoryId, setEditingProductCategoryId] = useState<string>("");
+  const [editingProductVariants, setEditingProductVariants] = useState<VariantForm[]>([]);
   const [editVForm, setEditVForm] = useState<Partial<Variant>>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{ productId: string; productName: string } | null>(null);
   const [variantForm, setVariantForm] = useState<VariantForm>({
@@ -485,14 +487,95 @@ export function Products(): React.JSX.Element {
   }
 
   async function updateProduct(productId: string) {
-    if (!editPForm.name) return;
-    const payload = {
-      ...editPForm,
-      images: editPForm.images.length > 0 ? editPForm.images : null,
-    };
-    await api(`/products/${productId}`, { method: "PATCH", body: JSON.stringify(payload) });
-    setEditingProduct(null);
-    await load();
+    if (!editPForm.name) {
+      alert("Nama produk wajib diisi");
+      return;
+    }
+    if (!editingProductCategoryId) {
+      alert("Kategori wajib dipilih");
+      return;
+    }
+    if (editingProductVariants.length === 0) {
+      alert("Minimal 1 variant wajib diisi");
+      return;
+    }
+
+    try {
+      // Calculate operational cost from category
+      const operationalCost = getCategoryOperationalCost(editingProductCategoryId);
+
+      // Update product basic info
+      await api(`/products/${productId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editPForm.name,
+          description: editPForm.description || null,
+          categoryId: editingProductCategoryId,
+          images: editPForm.images.length > 0 ? editPForm.images : null,
+        }),
+      });
+
+      // Get current variants to compare
+      const currentProduct = products.find((p) => p.id === productId);
+      const currentVariantIds = currentProduct?.variants.map((v) => v.id) || [];
+
+      // Update or create variants
+      for (const variant of editingProductVariants) {
+        const purchasePrice = variant.default_purchase_price || 0;
+        const sellingPrice = variant.price || 0;
+        const cogs = purchasePrice + operationalCost;
+
+        const variantPayload = {
+          sku: variant.sku,
+          barcode: variant.barcode || null,
+          weight_gram: variant.weight_gram,
+          stock_on_hand: variant.stock_on_hand,
+          price: sellingPrice,
+          default_purchase_price: purchasePrice,
+          default_operational_cost_unit: operationalCost,
+          cogs_current: cogs,
+          images: variant.images && variant.images.length > 0 ? variant.images[0] : null,
+        };
+
+        if (variant.id) {
+          // Update existing variant
+          await api(`/products/variants/${variant.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(variantPayload),
+          });
+        } else {
+          // Create new variant
+          await api(`/products/${productId}/variants`, {
+            method: "POST",
+            body: JSON.stringify(variantPayload),
+          });
+        }
+      }
+
+      // Delete variants that are no longer in the list
+      const editingVariantIds = editingProductVariants.map((v) => v.id).filter((id): id is string => !!id);
+      const variantsToDelete = currentVariantIds.filter((id) => !editingVariantIds.includes(id));
+      for (const variantId of variantsToDelete) {
+        await api(`/products/variants/${variantId}`, { method: "DELETE" });
+      }
+
+      setEditingProduct(null);
+      setEditPForm({ name: "", description: "", images: [], categoryId: "" });
+      setEditingProductCategoryId("");
+      setEditingProductVariants([]);
+      await load();
+    } catch (e: any) {
+      console.error("Error updating product:", e);
+      let errorMsg = "Terjadi kesalahan saat memperbarui produk";
+      try {
+        const errorText = e.message || String(e);
+        const errorObj = JSON.parse(errorText);
+        errorMsg = errorObj.error || errorMsg;
+      } catch {
+        errorMsg = e.message || String(e) || errorMsg;
+      }
+      alert(errorMsg);
+    }
   }
 
   async function deleteProduct(productId: string) {
@@ -611,10 +694,26 @@ export function Products(): React.JSX.Element {
     await load();
   }
 
-  function startEditProduct(p: Product) {
+  function startEditProduct(p: Product & { variants: Variant[] }) {
     setEditingProduct(p.id);
     const images = p.images ? (Array.isArray(p.images) ? p.images : [p.images]) : [];
-    setEditPForm({ name: p.name, description: p.description || "", images });
+    const categoryId = p.categoryId || "";
+    setEditPForm({ name: p.name, description: p.description || "", images, categoryId });
+    setEditingProductCategoryId(categoryId);
+    // Load variants for editing
+    const variantsForEdit = p.variants.map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      barcode: v.barcode || "",
+      weight_gram: v.weight_gram,
+      stock_on_hand: v.stock_on_hand,
+      price: v.price,
+      default_purchase_price: v.default_purchase_price,
+      default_operational_cost_unit: v.default_operational_cost_unit,
+      cogs_current: v.cogs_current,
+      images: v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : [],
+    }));
+    setEditingProductVariants(variantsForEdit);
   }
 
   function startEditVariant(v: Variant) {
@@ -1047,72 +1146,406 @@ export function Products(): React.JSX.Element {
             <div key={p.id} style={{ border: "1px solid #ddd", padding: 16, marginBottom: 16, borderRadius: 8 }}>
               {editingProduct === p.id ? (
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ marginBottom: 8 }}>
-                    <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
-                      Nama Produk <span style={{ color: "red" }}>*</span>
-                    </label>
-                    <input
-                      style={{ width: "100%", padding: 8 }}
-                      value={editPForm.name}
-                      onChange={(e) => setEditPForm({ ...editPForm, name: e.target.value })}
-                    />
-                  </div>
-                  <div style={{ marginBottom: 8 }}>
-                    <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>Deskripsi</label>
-                    <input
-                      style={{ width: "100%", padding: 8 }}
-                      value={editPForm.description}
-                      onChange={(e) => setEditPForm({ ...editPForm, description: e.target.value })}
-                    />
-                  </div>
-                  <div style={{ marginBottom: 8 }}>
-                    <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
-                      Gambar Produk
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => {
-                        handleProductFileSelect(e.target.files, editPForm.images, addEditProductImage);
-                        e.target.value = "";
-                      }}
-                      style={{ width: "100%", padding: 8, marginBottom: 8 }}
-                    />
-                    <p style={{ fontSize: "0.85em", color: "#666", marginBottom: 8 }}>
-                      Pilih gambar dari device Anda (maksimal 5 gambar, 5MB per file). Gambar pertama akan menjadi gambar utama.
-                    </p>
-                    {editPForm.images.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {editPForm.images.map((url, idx) => (
-                          <div key={idx} style={{ position: "relative", border: "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
-                            <img src={url} alt={`Product ${idx + 1}`} style={{ width: 100, height: 100, objectFit: "cover" }} />
-                            <button
-                              type="button"
-                              onClick={() => removeEditProductImage(idx)}
-                              style={{
-                                position: "absolute",
-                                top: 4,
-                                right: 4,
-                                background: "#dc3545",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "50%",
-                                width: 24,
-                                height: 24,
-                                cursor: "pointer",
-                              }}
-                            >
-                              ×
-                            </button>
+                  <h4 style={{ marginTop: 0 }}>Edit Produk</h4>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <div>
+                      <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                        Nama Produk <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input
+                        style={{ width: "100%", padding: 8 }}
+                        value={editPForm.name}
+                        onChange={(e) => setEditPForm({ ...editPForm, name: e.target.value })}
+                        placeholder="Masukkan nama produk"
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                        Deskripsi
+                      </label>
+                      <input
+                        style={{ width: "100%", padding: 8 }}
+                        value={editPForm.description}
+                        onChange={(e) => setEditPForm({ ...editPForm, description: e.target.value })}
+                        placeholder="Masukkan deskripsi produk (opsional)"
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                        Kategori <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <select
+                        style={{ width: "100%", padding: 8 }}
+                        value={editingProductCategoryId}
+                        onChange={(e) => {
+                          const newCategoryId = e.target.value;
+                          setEditingProductCategoryId(newCategoryId);
+                          setEditPForm({ ...editPForm, categoryId: newCategoryId });
+                          // Update all variants' operational cost and COGS when category changes
+                          const updatedVariants = editingProductVariants.map((v) => {
+                            const operationalCost = getCategoryOperationalCost(newCategoryId);
+                            const cogs = (v.default_purchase_price || 0) + operationalCost;
+                            return {
+                              ...v,
+                              default_operational_cost_unit: operationalCost,
+                              cogs_current: cogs,
+                            };
+                          });
+                          setEditingProductVariants(updatedVariants);
+                        }}
+                      >
+                        <option value="">-- Pilih Kategori --</option>
+                        {categories.map((cat) => {
+                          const totalCost = cat.operationalCostComponents?.reduce((sum, comp) => sum + Number(comp.cost), 0) || 0;
+                          return (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name} {cat.description ? `(${cat.description})` : ""} - Biaya Operasional: Rp {totalCost.toLocaleString("id-ID")}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {editingProductCategoryId && (
+                        <div style={{ marginTop: 8, padding: 8, backgroundColor: "#e7f3ff", borderRadius: 4, fontSize: "0.85em" }}>
+                          <strong>Biaya Operasional Kategori:</strong> Rp {getCategoryOperationalCost(editingProductCategoryId).toLocaleString("id-ID")}
+                          {categories.find(c => c.id === editingProductCategoryId)?.operationalCostComponents && 
+                           categories.find(c => c.id === editingProductCategoryId)!.operationalCostComponents!.length > 0 && (
+                            <div style={{ marginTop: 4 }}>
+                              <strong>Komponen:</strong>
+                              <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
+                                {categories.find(c => c.id === editingProductCategoryId)!.operationalCostComponents!.map((comp, idx) => (
+                                  <li key={idx}>{comp.name}: Rp {Number(comp.cost).toLocaleString("id-ID")}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                        Gambar Produk (Maksimal 5 gambar)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          handleProductFileSelect(e.target.files, editPForm.images, addEditProductImage);
+                          e.target.value = "";
+                        }}
+                        style={{ width: "100%", padding: 8, marginBottom: 8 }}
+                      />
+                      <p style={{ fontSize: "0.85em", color: "#666", marginBottom: 8 }}>
+                        Pilih gambar dari device Anda (maksimal 5 gambar, 5MB per file). Gambar pertama akan menjadi gambar utama.
+                      </p>
+                      {editPForm.images.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {editPForm.images.map((url, idx) => (
+                            <div key={idx} style={{ position: "relative", border: idx === 0 ? "2px solid #28a745" : "1px solid #ddd", borderRadius: 4, overflow: "hidden" }}>
+                              <img src={url} alt={`Product ${idx + 1}`} style={{ width: 100, height: 100, objectFit: "cover" }} />
+                              {idx === 0 && (
+                                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(40, 167, 69, 0.8)", color: "white", fontSize: "0.7em", textAlign: "center", padding: 2 }}>
+                                  Utama
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => removeEditProductImage(idx)}
+                                style={{
+                                  position: "absolute",
+                                  top: 4,
+                                  right: 4,
+                                  background: "#dc3545",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "50%",
+                                  width: 24,
+                                  height: 24,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Variants for Editing Product */}
+                    <div style={{ borderTop: "1px solid #eee", paddingTop: 16, marginTop: 8 }}>
+                      <h4 style={{ marginTop: 0 }}>
+                        Variants <span style={{ color: "red" }}>*</span> (Minimal 1 variant)
+                      </h4>
+                      
+                      {/* Form to add/edit variant */}
+                      <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 4, marginBottom: 12, backgroundColor: "#f9f9f9" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 8 }}>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                              SKU <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              style={{ width: "100%", padding: 6 }}
+                              value={variantForm.sku || ""}
+                              onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
+                              placeholder="SKU"
+                            />
                           </div>
-                        ))}
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>Barcode</label>
+                            <input
+                              style={{ width: "100%", padding: 6 }}
+                              value={variantForm.barcode || ""}
+                              onChange={(e) => setVariantForm({ ...variantForm, barcode: e.target.value })}
+                              placeholder="Barcode (opsional)"
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>Berat (gram)</label>
+                            <input
+                              type="number"
+                              style={{ width: "100%", padding: 6 }}
+                              value={variantForm.weight_gram || ""}
+                              onChange={(e) => setVariantForm({ ...variantForm, weight_gram: Number(e.target.value) || 0 })}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>Stok</label>
+                            <input
+                              type="number"
+                              style={{ width: "100%", padding: 6 }}
+                              value={variantForm.stock_on_hand || ""}
+                              onChange={(e) => setVariantForm({ ...variantForm, stock_on_hand: Number(e.target.value) || 0 })}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                              Harga Beli <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              type="number"
+                              style={{ width: "100%", padding: 6 }}
+                              value={variantForm.default_purchase_price || ""}
+                              onChange={(e) => {
+                                const purchasePrice = Number(e.target.value) || 0;
+                                const operationalCost = getCategoryOperationalCost(editingProductCategoryId);
+                                const cogs = purchasePrice + operationalCost;
+                                setVariantForm({ 
+                                  ...variantForm, 
+                                  default_purchase_price: purchasePrice,
+                                  default_operational_cost_unit: operationalCost,
+                                  cogs_current: cogs
+                                });
+                              }}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                              Harga Jual <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              type="number"
+                              style={{ width: "100%", padding: 6 }}
+                              value={variantForm.price || ""}
+                              onChange={(e) => setVariantForm({ ...variantForm, price: Number(e.target.value) || 0 })}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                              Biaya Operasional/Unit (Otomatis)
+                            </label>
+                            <input
+                              type="number"
+                              style={{ width: "100%", padding: 6, backgroundColor: "#f5f5f5", cursor: "not-allowed" }}
+                              value={getCategoryOperationalCost(editingProductCategoryId)}
+                              readOnly
+                              disabled
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                              COGS Saat Ini (Otomatis)
+                            </label>
+                            <input
+                              type="number"
+                              style={{ width: "100%", padding: 6, backgroundColor: "#f5f5f5", cursor: "not-allowed" }}
+                              value={(variantForm.default_purchase_price || 0) + getCategoryOperationalCost(editingProductCategoryId)}
+                              readOnly
+                              disabled
+                            />
+                          </div>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                            Gambar Variant (Maksimal 1 gambar)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              handleVariantFileSelect(e.target.files, variantForm.images, addVariantImage);
+                              e.target.value = "";
+                            }}
+                            style={{ width: "100%", padding: 6, marginBottom: 8 }}
+                          />
+                          {variantForm.images && variantForm.images.length > 0 && (
+                            <div style={{ position: "relative", display: "inline-block", marginTop: 8 }}>
+                              <img src={variantForm.images[0]} alt="Variant" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 4 }} />
+                              <button
+                                type="button"
+                                onClick={() => removeVariantImage()}
+                                style={{
+                                  position: "absolute",
+                                  top: 4,
+                                  right: 4,
+                                  background: "#dc3545",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "50%",
+                                  width: 20,
+                                  height: 20,
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!variantForm.sku || !variantForm.sku.trim()) {
+                              alert("SKU wajib diisi");
+                              return;
+                            }
+                            if (!variantForm.default_purchase_price || variantForm.default_purchase_price <= 0) {
+                              alert("Harga beli wajib diisi dan harus lebih dari 0");
+                              return;
+                            }
+                            if (!variantForm.price || variantForm.price <= 0) {
+                              alert("Harga jual wajib diisi dan harus lebih dari 0");
+                              return;
+                            }
+                            const operationalCost = getCategoryOperationalCost(editingProductCategoryId);
+                            const cogs = (variantForm.default_purchase_price || 0) + operationalCost;
+                            const newVariant: VariantForm = {
+                              ...variantForm,
+                              default_operational_cost_unit: operationalCost,
+                              cogs_current: cogs,
+                            };
+                            setEditingProductVariants([...editingProductVariants, newVariant]);
+                            setVariantForm({
+                              sku: "",
+                              barcode: "",
+                              weight_gram: 0,
+                              stock_on_hand: 0,
+                              price: 0,
+                              default_purchase_price: 0,
+                              default_operational_cost_unit: 0,
+                              cogs_current: 0,
+                              images: [],
+                            });
+                          }}
+                          style={{ padding: "6px 12px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: 4, cursor: "pointer" }}
+                        >
+                          + Tambah Variant
+                        </button>
                       </div>
-                    )}
+
+                      {/* List of variants for editing */}
+                      {editingProductVariants.length > 0 && (
+                        <div style={{ marginBottom: 12 }}>
+                          <strong>Variants yang akan disimpan ({editingProductVariants.length}):</strong>
+                          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+                            {editingProductVariants.map((v, idx) => (
+                              <li key={idx} style={{ marginBottom: 8, padding: 8, backgroundColor: "#f0f0f0", borderRadius: 4 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                                  <div>
+                                    <div>
+                                      <strong>{v.sku}</strong> | {v.weight_gram}g | Stok: {v.stock_on_hand}
+                                    </div>
+                                    <div style={{ fontSize: "0.9em", marginTop: 4 }}>
+                                      Harga Beli: Rp {Number(v.default_purchase_price).toLocaleString("id-ID")} | 
+                                      Harga Jual: Rp {Number(v.price).toLocaleString("id-ID")} | 
+                                      Biaya Operasional: Rp {Number(v.default_operational_cost_unit).toLocaleString("id-ID")} | 
+                                      COGS: Rp {Number(v.cogs_current).toLocaleString("id-ID")}
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "flex", gap: 4 }}>
+                                    <button
+                                      onClick={() => {
+                                        setVariantForm(v);
+                                        setEditingProductVariants(editingProductVariants.filter((_, i) => i !== idx));
+                                      }}
+                                      style={{ fontSize: "0.85em", padding: "4px 8px" }}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingProductVariants(editingProductVariants.filter((_, i) => i !== idx))}
+                                      style={{ fontSize: "0.85em", padding: "4px 8px", background: "#dc3545", color: "white" }}
+                                    >
+                                      Hapus
+                                    </button>
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => updateProduct(p.id)}>Simpan</button>
-                    <button onClick={() => setEditingProduct(null)}>Batal</button>
+                  <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                    <button
+                      onClick={() => updateProduct(p.id)}
+                      disabled={editingProductVariants.length === 0}
+                      style={{
+                        padding: "10px 20px",
+                        backgroundColor: editingProductVariants.length === 0 ? "#ccc" : "#28a745",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 4,
+                        cursor: editingProductVariants.length === 0 ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      Simpan Perubahan ({editingProductVariants.length} Variant)
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingProduct(null);
+                        setEditPForm({ name: "", description: "", images: [], categoryId: "" });
+                        setEditingProductCategoryId("");
+                        setEditingProductVariants([]);
+                        setVariantForm({
+                          sku: "",
+                          barcode: "",
+                          weight_gram: 0,
+                          stock_on_hand: 0,
+                          price: 0,
+                          default_purchase_price: 0,
+                          default_operational_cost_unit: 0,
+                          cogs_current: 0,
+                          images: [],
+                        });
+                      }}
+                      style={{
+                        padding: "10px 20px",
+                        backgroundColor: "#6c757d",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Batal
+                    </button>
                   </div>
                 </div>
               ) : (

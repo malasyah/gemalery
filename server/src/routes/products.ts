@@ -457,7 +457,14 @@ productsRouter.patch("/:productId", async (req, res) => {
     }
   }
   
-  const updated = await prisma.product.update({ where: { id: productId }, data });
+  // Prepare update data
+  const updateData: any = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.description !== undefined) updateData.description = data.description || null;
+  if (data.images !== undefined) updateData.images = data.images;
+  if (data.categoryId !== undefined) updateData.categoryId = data.categoryId || null;
+  
+  const updated = await prisma.product.update({ where: { id: productId }, data: updateData });
   res.json(updated);
 });
 

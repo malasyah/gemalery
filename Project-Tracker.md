@@ -234,6 +234,17 @@ Bug Fixes:
   - Dropdown displays category description and total operational cost
   - Operational cost automatically filled from newly created category
   - POS auto-reloads products after successful transaction to update stock without page refresh
+  - Created Categories management page with full CRUD operations (Create, Read, Update, Delete)
+  - Categories page includes operational cost components management
+  - Categories page shows product count per category
+  - Added Categories route to admin navigation (admin-only access)
+  - Updated edit product form to match create form:
+    - Category dropdown with operational cost display
+    - Full variant management (add, edit, delete variants)
+    - Auto-calculate operational cost and COGS when category or purchase price changes
+    - Read-only fields for operational cost and COGS
+    - Validation for required fields (category, purchase price, selling price)
+  - Updated backend product update route to handle categoryId
 
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)
