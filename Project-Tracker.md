@@ -164,6 +164,13 @@ Bug Fixes:
   - Integrated image compression and base64 conversion for customer photos
   - Modal can be closed by clicking outside or cancel button
   - Form resets after successful customer creation
+  - Integrated AuthContext for automatic authentication (removed manual JWT token input)
+  - Token is now automatically retrieved from localStorage (same as admin pages)
+  - Token is read-only and cannot be edited by user
+  - Added status indicators showing login status and user role
+  - Added visual indicator that JWT token is automatically filled and cannot be edited
+  - Added role-based access control checks (only staff/admin can create orders)
+  - Customer selection resets after order is successfully created
 
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)

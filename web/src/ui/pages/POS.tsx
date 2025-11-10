@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
+import { useAuth } from "../../contexts/AuthContext";
 
 type Line = { variantId: string; qty: number };
 
@@ -84,10 +85,10 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export function POS(): React.JSX.Element {
+  const { token, user } = useAuth();
   const [items, setItems] = useState<Line[]>([{ variantId: "", qty: 1 }]);
   const [customerId, setCustomerId] = useState("");
   const [order, setOrder] = useState<any>(null);
-  const [token, setToken] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "", email: "", photo: "" });
@@ -149,15 +150,22 @@ export function POS(): React.JSX.Element {
   }
 
   async function createOrder() {
-    if (!token) return alert("Login dulu sebagai staff/admin");
+    if (!token) {
+      alert("Silakan login terlebih dahulu sebagai staff/admin");
+      return;
+    }
+    if (user && user.role !== "admin" && user.role !== "staff") {
+      alert("Anda tidak memiliki akses untuk membuat order. Hanya staff/admin yang dapat mengakses POS.");
+      return;
+    }
     try {
       const res = await api<any>(`/pos/orders`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ items, customerId: customerId || undefined })
       });
       setOrder(res);
       setItems([{ variantId: "", qty: 1 }]);
+      setCustomerId(""); // Reset customer selection after order created
     } catch (e: any) {
       alert("Error: " + (e.message || String(e)));
     }
@@ -166,9 +174,24 @@ export function POS(): React.JSX.Element {
   return (
     <div>
       <h2>POS (Staff Only)</h2>
-      <div style={{ marginBottom: 12 }}>
-        <input placeholder="JWT Token (dari /auth/login staff/admin)" value={token} onChange={(e) => setToken(e.target.value)} style={{ width: "100%", maxWidth: 400 }} />
-      </div>
+      {!token || !user ? (
+        <div style={{ padding: 16, backgroundColor: "#fff3cd", border: "1px solid #ffc107", borderRadius: 4, marginBottom: 16 }}>
+          <strong>⚠️ Belum Login</strong>
+          <p style={{ margin: "8px 0 0 0" }}>Silakan login terlebih dahulu sebagai staff/admin untuk menggunakan POS.</p>
+        </div>
+      ) : user.role !== "admin" && user.role !== "staff" ? (
+        <div style={{ padding: 16, backgroundColor: "#f8d7da", border: "1px solid #dc3545", borderRadius: 4, marginBottom: 16 }}>
+          <strong>❌ Akses Ditolak</strong>
+          <p style={{ margin: "8px 0 0 0" }}>Anda tidak memiliki akses untuk menggunakan POS. Hanya staff/admin yang dapat mengakses.</p>
+        </div>
+      ) : (
+        <div style={{ padding: 12, backgroundColor: "#d4edda", border: "1px solid #28a745", borderRadius: 4, marginBottom: 16 }}>
+          <strong>✓ Login sebagai:</strong> {user.name || user.email} ({user.role})
+          <div style={{ marginTop: 8, fontSize: "0.85em", color: "#666" }}>
+            <strong>Token JWT:</strong> Terisi otomatis (tidak dapat diedit)
+          </div>
+        </div>
+      )}
       <div style={{ display: "grid", gap: 8 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
           <div style={{ flex: 1 }}>
