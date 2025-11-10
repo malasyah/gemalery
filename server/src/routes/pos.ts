@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { ChannelKey } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
@@ -45,7 +45,7 @@ posRouter.post("/orders", requireAuth, requireRole(["staff", "admin"]), async (r
       try {
         channel = await prisma.channel.create({
           data: {
-            key: "offline" as Prisma.ChannelKey,
+            key: ChannelKey.offline,
             name: "Offline"
           }
         });

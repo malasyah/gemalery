@@ -199,6 +199,7 @@ Bug Fixes:
   - Fixed customerId handling (only send if not empty)
   - Added console logging for debugging
   - Better error handling for validation errors, missing variants, and database errors
+  - Fixed TypeScript error: Changed Prisma.ChannelKey to ChannelKey enum import from @prisma/client
 
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)
