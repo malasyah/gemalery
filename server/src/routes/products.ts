@@ -3,9 +3,25 @@ import { prisma } from "../lib/prisma.js";
 
 export const productsRouter = Router();
 
+// Helper function to calculate operational cost from category
+async function calculateCategoryOperationalCost(categoryId: string | null | undefined): Promise<number> {
+  if (!categoryId) return 0;
+  
+  const category = await prisma.productCategory.findUnique({
+    where: { id: categoryId },
+    include: { operationalCostComponents: true }
+  });
+  
+  if (!category || !category.operationalCostComponents) return 0;
+  
+  return category.operationalCostComponents.reduce((sum, component) => {
+    return sum + Number(component.cost);
+  }, 0);
+}
+
 // Create product with variants
 productsRouter.post("/", async (req, res) => {
-  const { name, description, images, variants } = req.body || {};
+  const { name, description, images, categoryId, variants } = req.body || {};
   
   // Validate product images (max 5)
   if (images) {
@@ -17,6 +33,10 @@ productsRouter.post("/", async (req, res) => {
   
   if (!name) {
     return res.status(400).json({ error: "Product name is required" });
+  }
+  
+  if (!categoryId) {
+    return res.status(400).json({ error: "Category is required" });
   }
   
   if (!variants || !Array.isArray(variants) || variants.length === 0) {
@@ -37,13 +57,16 @@ productsRouter.post("/", async (req, res) => {
     skuSet.add(sku);
   }
 
+  // Calculate operational cost from category
+  const operationalCost = await calculateCategoryOperationalCost(categoryId);
+  
   // Create product with variants in transaction
   try {
-    console.log("Creating product with variants:", { name, variantsCount: variants.length, variants });
+    console.log("Creating product with variants:", { name, categoryId, operationalCost, variantsCount: variants.length, variants });
     
     const product = await prisma.$transaction(async (tx) => {
       const newProduct = await tx.product.create({
-        data: { name, description, images }
+        data: { name, description, images, categoryId }
       });
 
       console.log("Product created:", newProduct.id);
@@ -59,16 +82,31 @@ productsRouter.post("/", async (req, res) => {
             }
           }
           
+          // Validate required fields
+          const purchasePrice = Number(v.default_purchase_price) || 0;
+          const sellingPrice = Number(v.price) || 0;
+          
+          if (purchasePrice <= 0) {
+            throw new Error(`Variant ${index + 1} (SKU: ${v.sku}): Harga beli wajib diisi`);
+          }
+          
+          if (sellingPrice <= 0) {
+            throw new Error(`Variant ${index + 1} (SKU: ${v.sku}): Harga jual wajib diisi`);
+          }
+          
+          // Calculate COGS = purchase price + operational cost
+          const cogs = purchasePrice + operationalCost;
+          
           const variantData = {
             productId: newProduct.id,
             sku: String(v.sku).trim(),
             barcode: v.barcode && String(v.barcode).trim() ? String(v.barcode).trim() : null,
             weight_gram: Number(v.weight_gram) || 0,
             stock_on_hand: Number(v.stock_on_hand) || 0,
-            price: Number(v.price) || 0,
-            default_purchase_price: Number(v.default_purchase_price) || 0,
-            default_operational_cost_unit: Number(v.default_operational_cost_unit) || 0,
-            cogs_current: Number(v.cogs_current) || 0,
+            price: sellingPrice,
+            default_purchase_price: purchasePrice,
+            default_operational_cost_unit: operationalCost, // Auto-filled from category
+            cogs_current: cogs, // Auto-calculated: purchase_price + operational_cost
             images: v.images ? (Array.isArray(v.images) ? (v.images.length > 0 ? v.images[0] : null) : v.images) : null,
           };
           

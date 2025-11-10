@@ -200,6 +200,33 @@ Bug Fixes:
   - Added console logging for debugging
   - Better error handling for validation errors, missing variants, and database errors
   - Fixed TypeScript error: Changed Prisma.ChannelKey to ChannelKey enum import from @prisma/client
+- Implemented automatic COGS calculation based on category operational costs
+  - Added CategoryOperationalCostComponent model to schema for category operational cost variants
+  - Each category can have multiple operational cost components (name/description + cost)
+  - Created migration for category operational cost components
+  - Updated ProductCategory model to include operational cost components relation
+  - Created API routes for CRUD category operational cost components:
+    - GET /categories/:id - Get category with operational cost components
+    - POST /categories/:id/operational-cost-components - Add component to category
+    - PATCH /categories/operational-cost-components/:componentId - Update component
+    - DELETE /categories/operational-cost-components/:componentId - Delete component
+  - Updated product creation form:
+    - Category is now required (must be selected before creating product)
+    - Operational cost automatically filled from selected category's total operational cost
+    - COGS automatically calculated = purchase price + operational cost
+    - Operational cost and COGS fields are read-only (cannot be edited)
+    - Only purchase price and selling price can be edited (both required)
+    - Display category operational cost breakdown when category is selected
+  - Updated backend product creation:
+    - Validates category is required
+    - Calculates operational cost from category automatically
+    - Calculates COGS = purchase_price + operational_cost automatically
+    - Validates purchase price and selling price are required and > 0
+  - Updated frontend product form:
+    - Category dropdown with operational cost display
+    - Auto-update operational cost and COGS when category or purchase price changes
+    - Read-only fields for operational cost and COGS with visual indication
+    - Validation for required fields (category, purchase price, selling price)
 
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)

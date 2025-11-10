@@ -18,9 +18,22 @@ type Variant = {
 
 type VariantForm = Omit<Variant, "id" | "productId">;
 
+type Category = {
+  id: string;
+  name: string;
+  description?: string | null;
+  operationalCostComponents?: Array<{
+    id: string;
+    name: string;
+    cost: string | number;
+  }>;
+};
+
 export function Products(): React.JSX.Element {
   const [products, setProducts] = useState<(Product & { variants: Variant[] })[]>([]);
-  const [pForm, setPForm] = useState({ name: "", description: "", images: [] as string[] });
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [pForm, setPForm] = useState({ name: "", description: "", images: [] as string[], categoryId: "" });
   const [productVariants, setProductVariants] = useState<VariantForm[]>([]);
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [editingVariant, setEditingVariant] = useState<string | null>(null);
@@ -64,7 +77,47 @@ export function Products(): React.JSX.Element {
     }));
     setProducts(normalized);
   }
-  useEffect(() => { load().catch(() => undefined); }, []);
+
+  async function loadCategories() {
+    try {
+      const list = await api<Category[]>("/categories");
+      setCategories(list);
+    } catch (e) {
+      console.error("Error loading categories:", e);
+    }
+  }
+
+  useEffect(() => { 
+    load().catch(() => undefined);
+    loadCategories().catch(() => undefined);
+  }, []);
+
+  // Calculate operational cost from selected category
+  function getCategoryOperationalCost(categoryId: string): number {
+    if (!categoryId) return 0;
+    const category = categories.find(c => c.id === categoryId);
+    if (!category || !category.operationalCostComponents) return 0;
+    return category.operationalCostComponents.reduce((sum, component) => {
+      return sum + Number(component.cost);
+    }, 0);
+  }
+
+  // Update operational cost and COGS when category or purchase price changes
+  function updateVariantCosts(variantIndex: number, purchasePrice?: number) {
+    const updated = [...productVariants];
+    const variant = updated[variantIndex];
+    const operationalCost = getCategoryOperationalCost(selectedCategoryId);
+    const currentPurchasePrice = purchasePrice !== undefined ? purchasePrice : variant.default_purchase_price;
+    const cogs = currentPurchasePrice + operationalCost;
+    
+    updated[variantIndex] = {
+      ...variant,
+      default_operational_cost_unit: operationalCost,
+      cogs_current: cogs,
+      ...(purchasePrice !== undefined && { default_purchase_price: purchasePrice }),
+    };
+    setProductVariants(updated);
+  }
 
   // Helper function to compress image
   function compressImage(file: File, maxWidth: number = 1920, quality: number = 0.8): Promise<File> {
@@ -301,6 +354,18 @@ export function Products(): React.JSX.Element {
       alert("SKU wajib diisi");
       return;
     }
+    if (!variantForm.default_purchase_price || variantForm.default_purchase_price <= 0) {
+      alert("Harga beli wajib diisi");
+      return;
+    }
+    if (!variantForm.price || variantForm.price <= 0) {
+      alert("Harga jual wajib diisi");
+      return;
+    }
+    if (!selectedCategoryId) {
+      alert("Kategori wajib dipilih terlebih dahulu");
+      return;
+    }
     
     const skuTrimmed = variantForm.sku.trim();
     const skuLower = skuTrimmed.toLowerCase();
@@ -312,7 +377,16 @@ export function Products(): React.JSX.Element {
       return;
     }
     
-    setProductVariants([...productVariants, { ...variantForm, sku: skuTrimmed }]);
+    // Calculate operational cost and COGS before adding
+    const operationalCost = getCategoryOperationalCost(selectedCategoryId);
+    const cogs = variantForm.default_purchase_price + operationalCost;
+    
+    setProductVariants([...productVariants, { 
+      ...variantForm, 
+      sku: skuTrimmed,
+      default_operational_cost_unit: operationalCost,
+      cogs_current: cogs
+    }]);
     setVariantForm({
       sku: "",
       barcode: "",
@@ -333,16 +407,26 @@ export function Products(): React.JSX.Element {
   function updateVariantInProduct(index: number, field: keyof VariantForm, value: string | number) {
     const updated = [...productVariants];
     (updated[index] as any)[field] = field === "sku" || field === "barcode" ? value : Number(value);
-    setProductVariants(updated);
+    
+    // Auto-update operational cost and COGS when purchase price changes
+    if (field === "default_purchase_price") {
+      updateVariantCosts(index, Number(value));
+    } else {
+      setProductVariants(updated);
+    }
   }
 
   async function createProduct() {
     if (!pForm.name) {
-      alert("Product name is required");
+      alert("Nama produk wajib diisi");
+      return;
+    }
+    if (!selectedCategoryId) {
+      alert("Kategori wajib dipilih");
       return;
     }
     if (productVariants.length === 0) {
-      alert("At least one variant is required");
+      alert("Minimal 1 variant wajib diisi");
       return;
     }
     
@@ -350,6 +434,7 @@ export function Products(): React.JSX.Element {
       const payload = {
         name: pForm.name,
         description: pForm.description,
+        categoryId: selectedCategoryId,
         images: pForm.images.length > 0 ? pForm.images : null,
         variants: productVariants.map(v => ({
           ...v,
@@ -366,7 +451,8 @@ export function Products(): React.JSX.Element {
       
       console.log("Product created:", result);
       
-      setPForm({ name: "", description: "", images: [] });
+      setPForm({ name: "", description: "", images: [], categoryId: "" });
+      setSelectedCategoryId("");
       setProductVariants([]);
       setVariantForm({
         sku: "",
@@ -600,6 +686,47 @@ export function Products(): React.JSX.Element {
           </div>
           <div>
             <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+              Kategori <span style={{ color: "red" }}>*</span>
+            </label>
+            <select
+              style={{ width: "100%", padding: 8 }}
+              value={selectedCategoryId}
+              onChange={(e) => {
+                const newCategoryId = e.target.value;
+                setSelectedCategoryId(newCategoryId);
+                setPForm({ ...pForm, categoryId: newCategoryId });
+                // Update all variants' operational cost and COGS when category changes
+                productVariants.forEach((_, index) => {
+                  updateVariantCosts(index);
+                });
+              }}
+            >
+              <option value="">-- Pilih Kategori --</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+            {selectedCategoryId && (
+              <div style={{ marginTop: 8, padding: 8, backgroundColor: "#e7f3ff", borderRadius: 4, fontSize: "0.85em" }}>
+                <strong>Biaya Operasional Kategori:</strong> Rp {getCategoryOperationalCost(selectedCategoryId).toLocaleString("id-ID")}
+                {categories.find(c => c.id === selectedCategoryId)?.operationalCostComponents && 
+                 categories.find(c => c.id === selectedCategoryId)!.operationalCostComponents!.length > 0 && (
+                  <div style={{ marginTop: 4 }}>
+                    <strong>Komponen:</strong>
+                    <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
+                      {categories.find(c => c.id === selectedCategoryId)!.operationalCostComponents!.map((comp, idx) => (
+                        <li key={idx}>{comp.name}: Rp {Number(comp.cost).toLocaleString("id-ID")}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
               Deskripsi Produk
             </label>
             <input
@@ -720,33 +847,60 @@ export function Products(): React.JSX.Element {
                 </div>
                 <div>
                   <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
-                    Harga Beli Default
+                    Harga Beli <span style={{ color: "red" }}>*</span>
                   </label>
                   <input
                     type="number"
                     style={{ width: "100%", padding: 6 }}
-                    value={variantForm.default_purchase_price}
-                    onChange={(e) => setVariantForm({ ...variantForm, default_purchase_price: Number(e.target.value) })}
+                    value={variantForm.default_purchase_price || ""}
+                    onChange={(e) => {
+                      const purchasePrice = Number(e.target.value) || 0;
+                      const operationalCost = getCategoryOperationalCost(selectedCategoryId);
+                      const cogs = purchasePrice + operationalCost;
+                      setVariantForm({ 
+                        ...variantForm, 
+                        default_purchase_price: purchasePrice,
+                        default_operational_cost_unit: operationalCost,
+                        cogs_current: cogs
+                      });
+                    }}
+                    placeholder="0"
                   />
                 </div>
                 <div>
                   <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
-                    Biaya Operasional/Unit
+                    Harga Jual <span style={{ color: "red" }}>*</span>
                   </label>
                   <input
                     type="number"
                     style={{ width: "100%", padding: 6 }}
-                    value={variantForm.default_operational_cost_unit}
-                    onChange={(e) => setVariantForm({ ...variantForm, default_operational_cost_unit: Number(e.target.value) })}
+                    value={variantForm.price || ""}
+                    onChange={(e) => setVariantForm({ ...variantForm, price: Number(e.target.value) || 0 })}
+                    placeholder="0"
                   />
                 </div>
                 <div>
-                  <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>COGS Saat Ini</label>
+                  <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                    Biaya Operasional/Unit (Otomatis)
+                  </label>
                   <input
                     type="number"
-                    style={{ width: "100%", padding: 6 }}
-                    value={variantForm.cogs_current}
-                    onChange={(e) => setVariantForm({ ...variantForm, cogs_current: Number(e.target.value) })}
+                    style={{ width: "100%", padding: 6, backgroundColor: "#f5f5f5", cursor: "not-allowed" }}
+                    value={getCategoryOperationalCost(selectedCategoryId)}
+                    readOnly
+                    disabled
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
+                    COGS Saat Ini (Otomatis)
+                  </label>
+                  <input
+                    type="number"
+                    style={{ width: "100%", padding: 6, backgroundColor: "#f5f5f5", cursor: "not-allowed" }}
+                    value={(variantForm.default_purchase_price || 0) + getCategoryOperationalCost(selectedCategoryId)}
+                    readOnly
+                    disabled
                   />
                 </div>
               </div>
@@ -805,11 +959,18 @@ export function Products(): React.JSX.Element {
                 <ul style={{ marginTop: 8, paddingLeft: 20 }}>
                   {productVariants.map((v, idx) => (
                     <li key={idx} style={{ marginBottom: 8, padding: 8, backgroundColor: "#f0f0f0", borderRadius: 4 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>
-                          <strong>{v.sku}</strong> | {v.weight_gram}g | Stok: {v.stock_on_hand} | 
-                          Harga: Rp {Number(v.price).toLocaleString("id-ID")}
-                        </span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <div>
+                            <strong>{v.sku}</strong> | {v.weight_gram}g | Stok: {v.stock_on_hand}
+                          </div>
+                          <div style={{ fontSize: "0.9em", marginTop: 4 }}>
+                            Harga Beli: Rp {Number(v.default_purchase_price).toLocaleString("id-ID")} | 
+                            Harga Jual: Rp {Number(v.price).toLocaleString("id-ID")} | 
+                            Biaya Operasional: Rp {Number(v.default_operational_cost_unit).toLocaleString("id-ID")} | 
+                            COGS: Rp {Number(v.cogs_current).toLocaleString("id-ID")}
+                          </div>
+                        </div>
                         <div style={{ display: "flex", gap: 4 }}>
                           <button
                             onClick={() => {
