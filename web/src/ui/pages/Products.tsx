@@ -16,7 +16,7 @@ type Variant = {
   images?: string[] | null;
 };
 
-type VariantForm = Omit<Variant, "id" | "productId">;
+type VariantForm = Omit<Variant, "productId"> & { id?: string };
 
 type Category = {
   id: string;
@@ -517,7 +517,7 @@ export function Products(): React.JSX.Element {
 
       // Get current variants to compare
       const currentProduct = products.find((p) => p.id === productId);
-      const currentVariantIds = currentProduct?.variants.map((v) => v.id) || [];
+      const currentVariantIds = (currentProduct?.variants.map((v) => v.id).filter((id): id is string => !!id) || []);
 
       // Update or create variants
       for (const variant of editingProductVariants) {
@@ -1388,7 +1388,7 @@ export function Products(): React.JSX.Element {
                             type="file"
                             accept="image/*"
                             onChange={(e) => {
-                              handleVariantFileSelect(e.target.files, variantForm.images, addVariantImage);
+                              handleVariantFileSelect(e.target.files, variantForm.images || null, addVariantImage);
                               e.target.value = "";
                             }}
                             style={{ width: "100%", padding: 6, marginBottom: 8 }}
