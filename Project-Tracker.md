@@ -171,6 +171,27 @@ Bug Fixes:
   - Added visual indicator that JWT token is automatically filled and cannot be edited
   - Added role-based access control checks (only staff/admin can create orders)
   - Customer selection resets after order is successfully created
+- Complete POS redesign with 3-column layout
+  - Header section: JWT token status (auto-filled, read-only) and customer dropdown with add new customer button
+  - Left column: Category menu with "All Products" option and all product categories
+  - Center column: Product grid displaying products with images, names, SKU, prices, and stock
+  - Products are clickable to add to cart (disabled if out of stock)
+  - Right column: Shopping cart/order list with:
+    - Product name, SKU, quantity controls (increase/decrease), price per item, total price
+    - Remove item button
+    - Subtotal calculation
+    - Discount input (percentage)
+    - Total after discount calculation
+    - Payment method selection (Cash, QRIS, Card)
+    - Cash payment: input for cash amount with automatic change calculation
+    - QRIS/Card payment: "Sudah Dibayar" button
+    - Process payment button (disabled if cart empty or cash insufficient)
+  - Print receipt/struk functionality:
+    - Opens print dialog with formatted receipt
+    - Includes store name, date/time, order items, subtotal, discount, total, payment method, change (if cash), order ID
+    - Optimized for 80mm thermal printer
+    - Auto-prints and closes after printing
+  - All features integrated and working together
 
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)
