@@ -37,11 +37,12 @@ export function Users(): React.JSX.Element {
 
   // Reset form when component mounts or route changes
   useEffect(() => {
-    load().catch(() => undefined);
-    // Reset form when component mounts or when navigating to this page
+    // Always reset form first, before loading data
     setForm({ email: "", password: "", name: "", role: "staff" });
     setEditingId(null);
     setEditForm({ email: "", password: "", name: "", role: "staff" });
+    // Then load users data
+    load().catch(() => undefined);
   }, [location.pathname]);
 
   async function createUser() {
@@ -189,15 +190,19 @@ export function Users(): React.JSX.Element {
       <h2 style={{ marginBottom: 24 }}>User Management</h2>
 
       {/* Create User Form */}
-      <div style={{ border: "1px solid #ddd", padding: 16, marginBottom: 24, borderRadius: 8 }}>
+      <div key={location.pathname} style={{ border: "1px solid #ddd", padding: 16, marginBottom: 24, borderRadius: 8 }}>
         <h3 style={{ marginTop: 0 }}>Buat User Baru</h3>
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); createUser(); }}>
+          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(2, 1fr)" }}>
           <div>
             <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
               Email <span style={{ color: "red" }}>*</span>
             </label>
             <input
+              key={`email-${location.pathname}`}
               type="email"
+              name="new-user-email"
+              autoComplete="off"
               style={{ width: "100%", padding: 8 }}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -209,7 +214,10 @@ export function Users(): React.JSX.Element {
               Password <span style={{ color: "red" }}>*</span>
             </label>
             <input
+              key={`password-${location.pathname}`}
               type="password"
+              name="new-user-password"
+              autoComplete="new-password"
               style={{ width: "100%", padding: 8 }}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -219,6 +227,10 @@ export function Users(): React.JSX.Element {
           <div>
             <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>Nama</label>
             <input
+              key={`name-${location.pathname}`}
+              type="text"
+              name="new-user-name"
+              autoComplete="off"
               style={{ width: "100%", padding: 8 }}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -239,22 +251,23 @@ export function Users(): React.JSX.Element {
               <option value="customer">Customer</option>
             </select>
           </div>
-        </div>
-        <button
-          onClick={createUser}
-          style={{
-            marginTop: 12,
-            padding: "10px 20px",
-            backgroundColor: "#2563eb",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Buat User
-        </button>
+          </div>
+          <button
+            type="submit"
+            style={{
+              marginTop: 12,
+              padding: "10px 20px",
+              backgroundColor: "#2563eb",
+              color: "white",
+              border: "none",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            Buat User
+          </button>
+        </form>
       </div>
 
       {/* Users List */}
