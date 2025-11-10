@@ -34,6 +34,9 @@ export function Products(): React.JSX.Element {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [pForm, setPForm] = useState({ name: "", description: "", images: [] as string[], categoryId: "" });
+  const [showNewCategoryModal, setShowNewCategoryModal] = useState(false);
+  const [newCategoryForm, setNewCategoryForm] = useState({ name: "", description: "" });
+  const [newCategoryCostComponents, setNewCategoryCostComponents] = useState<Array<{ name: string; cost: number }>>([{ name: "", cost: 0 }]);
   const [productVariants, setProductVariants] = useState<VariantForm[]>([]);
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [editingVariant, setEditingVariant] = useState<string | null>(null);
@@ -688,26 +691,46 @@ export function Products(): React.JSX.Element {
             <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
               Kategori <span style={{ color: "red" }}>*</span>
             </label>
-            <select
-              style={{ width: "100%", padding: 8 }}
-              value={selectedCategoryId}
-              onChange={(e) => {
-                const newCategoryId = e.target.value;
-                setSelectedCategoryId(newCategoryId);
-                setPForm({ ...pForm, categoryId: newCategoryId });
-                // Update all variants' operational cost and COGS when category changes
-                productVariants.forEach((_, index) => {
-                  updateVariantCosts(index);
-                });
-              }}
-            >
-              <option value="">-- Pilih Kategori --</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+            <div style={{ display: "flex", gap: 8 }}>
+              <select
+                style={{ flex: 1, padding: 8 }}
+                value={selectedCategoryId}
+                onChange={(e) => {
+                  const newCategoryId = e.target.value;
+                  setSelectedCategoryId(newCategoryId);
+                  setPForm({ ...pForm, categoryId: newCategoryId });
+                  // Update all variants' operational cost and COGS when category changes
+                  productVariants.forEach((_, index) => {
+                    updateVariantCosts(index);
+                  });
+                }}
+              >
+                <option value="">-- Pilih Kategori --</option>
+                {categories.map((cat) => {
+                  const totalCost = cat.operationalCostComponents?.reduce((sum, comp) => sum + Number(comp.cost), 0) || 0;
+                  return (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name} {cat.description ? `(${cat.description})` : ""} - Biaya Operasional: Rp {totalCost.toLocaleString("id-ID")}
+                    </option>
+                  );
+                })}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowNewCategoryModal(true)}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                + New Kategori
+              </button>
+            </div>
             {selectedCategoryId && (
               <div style={{ marginTop: 8, padding: 8, backgroundColor: "#e7f3ff", borderRadius: 4, fontSize: "0.85em" }}>
                 <strong>Biaya Operasional Kategori:</strong> Rp {getCategoryOperationalCost(selectedCategoryId).toLocaleString("id-ID")}
@@ -1471,6 +1494,228 @@ export function Products(): React.JSX.Element {
           ))
         )}
       </div>
+
+      {/* New Category Modal */}
+      {showNewCategoryModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowNewCategoryModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: 24,
+              borderRadius: 8,
+              maxWidth: 600,
+              width: "90%",
+              maxHeight: "90vh",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0 }}>Tambah Kategori Baru</h3>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                  Nama Kategori <span style={{ color: "red" }}>*</span>
+                </label>
+                <input
+                  style={{ width: "100%", padding: 8 }}
+                  value={newCategoryForm.name}
+                  onChange={(e) => setNewCategoryForm({ ...newCategoryForm, name: e.target.value })}
+                  placeholder="Masukkan nama kategori"
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                  Deskripsi Kategori
+                </label>
+                <input
+                  style={{ width: "100%", padding: 8 }}
+                  value={newCategoryForm.description}
+                  onChange={(e) => setNewCategoryForm({ ...newCategoryForm, description: e.target.value })}
+                  placeholder="Masukkan deskripsi kategori (opsional)"
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                  Komponen Biaya Operasional
+                </label>
+                {newCategoryCostComponents.map((comp, idx) => (
+                  <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                    <input
+                      style={{ flex: 1, padding: 8 }}
+                      value={comp.name}
+                      onChange={(e) => {
+                        const updated = [...newCategoryCostComponents];
+                        updated[idx].name = e.target.value;
+                        setNewCategoryCostComponents(updated);
+                      }}
+                      placeholder="Keterangan biaya"
+                    />
+                    <input
+                      type="number"
+                      style={{ width: 150, padding: 8 }}
+                      value={comp.cost || ""}
+                      onChange={(e) => {
+                        const updated = [...newCategoryCostComponents];
+                        updated[idx].cost = Number(e.target.value) || 0;
+                        setNewCategoryCostComponents(updated);
+                      }}
+                      placeholder="Harga"
+                    />
+                    {newCategoryCostComponents.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewCategoryCostComponents(newCategoryCostComponents.filter((_, i) => i !== idx));
+                        }}
+                        style={{
+                          padding: "8px 12px",
+                          backgroundColor: "#dc3545",
+                          color: "white",
+                          border: "none",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setNewCategoryCostComponents([...newCategoryCostComponents, { name: "", cost: 0 }])}
+                  style={{
+                    padding: "6px 12px",
+                    backgroundColor: "#28a745",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 4,
+                    cursor: "pointer",
+                    fontSize: "0.9em",
+                  }}
+                >
+                  + Tambah Komponen
+                </button>
+                <div style={{ marginTop: 8, padding: 8, backgroundColor: "#e7f3ff", borderRadius: 4, fontSize: "0.9em" }}>
+                  <strong>Total Biaya Operasional:</strong> Rp{" "}
+                  {newCategoryCostComponents.reduce((sum, comp) => sum + (comp.cost || 0), 0).toLocaleString("id-ID")}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewCategoryModal(false);
+                  setNewCategoryForm({ name: "", description: "" });
+                  setNewCategoryCostComponents([{ name: "", cost: 0 }]);
+                }}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!newCategoryForm.name.trim()) {
+                    alert("Nama kategori wajib diisi");
+                    return;
+                  }
+
+                  try {
+                    // Create category
+                    const category = await api<Category>("/categories", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        name: newCategoryForm.name.trim(),
+                        description: newCategoryForm.description.trim() || null,
+                      }),
+                    });
+
+                    // Create operational cost components
+                    const validComponents = newCategoryCostComponents.filter(
+                      (comp) => comp.name.trim() && comp.cost > 0
+                    );
+                    
+                    if (validComponents.length > 0) {
+                      await Promise.all(
+                        validComponents.map((comp) =>
+                          api(`/categories/${category.id}/operational-cost-components`, {
+                            method: "POST",
+                            body: JSON.stringify({
+                              name: comp.name.trim(),
+                              cost: comp.cost,
+                            }),
+                          })
+                        )
+                      );
+                    }
+
+                    // Reload categories
+                    await loadCategories();
+
+                    // Select the newly created category
+                    setSelectedCategoryId(category.id);
+                    setPForm({ ...pForm, categoryId: category.id });
+
+                    // Update all variants' operational cost and COGS
+                    productVariants.forEach((_, index) => {
+                      updateVariantCosts(index);
+                    });
+
+                    // Close modal and reset form
+                    setShowNewCategoryModal(false);
+                    setNewCategoryForm({ name: "", description: "" });
+                    setNewCategoryCostComponents([{ name: "", cost: 0 }]);
+                  } catch (e: any) {
+                    console.error("Error creating category:", e);
+                    let errorMsg = "Terjadi kesalahan saat membuat kategori";
+                    try {
+                      const errorText = e.message || String(e);
+                      const errorObj = JSON.parse(errorText);
+                      errorMsg = errorObj.error || errorMsg;
+                    } catch {
+                      errorMsg = e.message || String(e) || errorMsg;
+                    }
+                    alert(errorMsg);
+                  }
+                }}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                Simpan Kategori
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

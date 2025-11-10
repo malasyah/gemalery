@@ -227,6 +227,13 @@ Bug Fixes:
     - Auto-update operational cost and COGS when category or purchase price changes
     - Read-only fields for operational cost and COGS with visual indication
     - Validation for required fields (category, purchase price, selling price)
+  - Added "New Kategori" button next to category dropdown in product form
+  - Created popup/modal for creating new category with operational cost components
+  - Modal allows adding multiple operational cost components (name + cost)
+  - After creating new category, dropdown automatically updates and selects the new category
+  - Dropdown displays category description and total operational cost
+  - Operational cost automatically filled from newly created category
+  - POS auto-reloads products after successful transaction to update stock without page refresh
 
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)

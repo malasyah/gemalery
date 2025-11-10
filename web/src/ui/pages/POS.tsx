@@ -314,6 +314,8 @@ export function POS(): React.JSX.Element {
       setDiscountPercent(0);
       setCashAmount(0);
       setPaymentMethod("cash");
+      // Reload products to update stock
+      await loadProducts();
     } catch (e: any) {
       console.error("Error creating order:", e);
       let errorMessage = "Terjadi kesalahan saat membuat order";
