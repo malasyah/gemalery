@@ -137,6 +137,13 @@ Bug Fixes:
   - Added optional chaining for variant?.product?.images to prevent undefined access
   - Fixed TypeError when variant.product is undefined in cart items
   - Ensured safe access to product images in cart display
+- Fixed Users page form reset issue
+  - Added useLocation to detect route changes
+  - Reset form fields (email, password, name, role) when component mounts or route changes
+  - Ensure form is empty when opening Users tab
+  - Reset form after successful create/update operations
+  - Reset edit form when canceling edit mode
+  - Fix issue where form labels were not empty when opening Users tab
 
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)
