@@ -154,6 +154,17 @@ Bug Fixes:
   - Ensure Email, Password, and Name fields are always empty when opening Users tab
   - Only Role field has default value 'staff' as expected
 
+- Enhanced POS (Point of Sale) page with customer dropdown and add new customer modal
+  - Replaced customer ID text input with dropdown (select) that displays customer names
+  - Added "Add New Customer" button next to dropdown
+  - Implemented modal/popup for creating new customer from POS page
+  - Modal includes form fields: name (required), email, phone, photo (with image upload)
+  - After creating new customer, dropdown automatically updates with new data
+  - Dropdown automatically selects the newly created customer
+  - Integrated image compression and base64 conversion for customer photos
+  - Modal can be closed by clicking outside or cancel button
+  - Form resets after successful customer creation
+
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)
 - Verify category filtering and search functionality
