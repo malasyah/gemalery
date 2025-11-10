@@ -144,6 +144,15 @@ Bug Fixes:
   - Reset form after successful create/update operations
   - Reset edit form when canceling edit mode
   - Fix issue where form labels were not empty when opening Users tab
+- Fixed Users page form auto-fill issue - ensure form is always empty
+  - Reset form before loading data to ensure empty state
+  - Add autoComplete='off' on form element to prevent browser autofill
+  - Add autoComplete='off' and autoComplete='new-password' on input fields
+  - Add unique key props on form container and input fields to force React recreation
+  - Add unique name attributes on inputs to prevent browser autofill matching
+  - Wrap form in form element with proper structure
+  - Ensure Email, Password, and Name fields are always empty when opening Users tab
+  - Only Role field has default value 'staff' as expected
 
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)
