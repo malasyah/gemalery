@@ -160,7 +160,7 @@ export function Cart() {
                 const images = variant?.images 
                   ? (Array.isArray(variant.images) ? variant.images : [variant.images])
                   : [];
-                const productImages = variant?.product.images
+                const productImages = variant?.product?.images
                   ? (Array.isArray(variant.product.images) ? variant.product.images : [variant.product.images])
                   : [];
                 const allImages = [...productImages, ...images];
