@@ -290,12 +290,20 @@ export function POS(): React.JSX.Element {
         qty: item.qty,
       }));
 
+      const payload: any = {
+        items,
+      };
+      
+      // Only include customerId if it's not empty
+      if (customerId && customerId.trim() !== "") {
+        payload.customerId = customerId;
+      }
+
+      console.log("Sending POS order:", payload);
+
       const res = await api<any>(`/pos/orders`, {
         method: "POST",
-        body: JSON.stringify({
-          items,
-          customerId: customerId || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       setOrder(res);
@@ -307,7 +315,23 @@ export function POS(): React.JSX.Element {
       setCashAmount(0);
       setPaymentMethod("cash");
     } catch (e: any) {
-      alert("Error: " + (e.message || String(e)));
+      console.error("Error creating order:", e);
+      let errorMessage = "Terjadi kesalahan saat membuat order";
+      
+      if (e.message) {
+        try {
+          const errorObj = typeof e.message === "string" ? JSON.parse(e.message) : e.message;
+          if (errorObj.error) {
+            errorMessage = typeof errorObj.error === "string" ? errorObj.error : JSON.stringify(errorObj.error);
+          } else if (errorObj.message) {
+            errorMessage = errorObj.message;
+          }
+        } catch {
+          errorMessage = e.message;
+        }
+      }
+      
+      alert(`Error: ${errorMessage}`);
     }
   }
 

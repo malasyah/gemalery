@@ -192,6 +192,13 @@ Bug Fixes:
     - Optimized for 80mm thermal printer
     - Auto-prints and closes after printing
   - All features integrated and working together
+- Fixed POS order creation error (500 Internal Server Error)
+  - Added comprehensive error handling in backend POS route
+  - Added auto-create offline channel if missing in database
+  - Improved error messages in frontend to show detailed error information
+  - Fixed customerId handling (only send if not empty)
+  - Added console logging for debugging
+  - Better error handling for validation errors, missing variants, and database errors
 
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)
