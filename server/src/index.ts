@@ -24,6 +24,7 @@ import { purchasesRouter } from "./routes/purchases.js";
 import { costsRouter } from "./routes/costs.js";
 import { categoriesRouter } from "./routes/categories.js";
 import { contactRouter } from "./routes/contact.js";
+import { usersRouter } from "./routes/users.js";
 
 dotenv.config();
 
@@ -84,6 +85,7 @@ app.get("/health/db", async (_req, res) => {
 });
 
 // Routes
+app.use("/users", usersRouter);
 app.use("/customers", customersRouter);
 app.use("/products", productsRouter);
 app.use("/categories", categoriesRouter);

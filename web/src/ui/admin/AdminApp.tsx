@@ -7,6 +7,7 @@ import { Products } from "../pages/Products";
 import { Dashboard } from "../pages/Dashboard";
 import { POS } from "../pages/POS";
 import { Customers } from "../pages/Customers";
+import { Users } from "../pages/Users";
 
 function AdminProtectedRoute({ children }: { children: React.ReactElement }) {
   const { user, isLoading } = useAuth();
@@ -27,6 +28,25 @@ function AdminProtectedRoute({ children }: { children: React.ReactElement }) {
   return children;
 }
 
+function AdminOnlyRoute({ children }: { children: React.ReactElement }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Check if user is admin only
+  if (user.role !== "admin") {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
+  return children;
+}
+
 function AdminNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,10 +60,19 @@ function AdminNavigation() {
     { path: "/dashboard", label: "Dashboard", icon: "📊" },
     { path: "/products", label: "Products", icon: "📦" },
     { path: "/customers", label: "Customers", icon: "👥" },
+    { path: "/users", label: "Users", icon: "👤", adminOnly: true },
     { path: "/pos", label: "POS", icon: "💰" },
     { path: "/checkout", label: "Checkout", icon: "🛒" },
     { path: "/addresses", label: "Address Book", icon: "📍" },
   ];
+
+  // Filter nav items based on user role
+  const visibleNavItems = navItems.filter(item => {
+    if (item.adminOnly && user?.role !== "admin") {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <nav className="bg-gray-800 text-white shadow-lg">
@@ -54,7 +83,7 @@ function AdminNavigation() {
               <h1 className="text-xl font-bold">Gemalery Admin</h1>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              {navItems.map((item) => (
+              {visibleNavItems.map((item) => (
                 <button
                   key={item.path}
                   onClick={() => navigate(`/admin${item.path}`)}
@@ -95,7 +124,7 @@ function AdminNavigation() {
       {/* Mobile menu */}
       <div className="sm:hidden">
         <div className="px-2 pt-2 pb-3 space-y-1">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(`/admin${item.path}`)}
@@ -126,6 +155,14 @@ export function AdminApp(): React.JSX.Element {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/customers" element={<Customers />} />
+            <Route
+              path="/users"
+              element={
+                <AdminOnlyRoute>
+                  <Users />
+                </AdminOnlyRoute>
+              }
+            />
             <Route path="/pos" element={<POS />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/addresses" element={<AddressBook />} />

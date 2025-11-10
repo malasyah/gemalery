@@ -114,6 +114,24 @@ Admin UI Improvements:
 - Responsive design with mobile menu support
 - Created admin UI documentation (web/src/ui/admin/README.md)
 
+User Management:
+- Created API routes for user management (GET, POST, PATCH, DELETE /users) - admin only
+  - List all users with customer information
+  - Create new users (admin, staff, or customer role)
+  - Update user email, name, role, and password
+  - Delete users (with validation to prevent self-deletion)
+  - All routes protected with admin-only access
+- Created admin UI page for managing users (/admin/users)
+  - User list with role badges (admin/staff/customer)
+  - Create user form with email, password, name, and role selection
+  - Edit user functionality with optional password update
+  - Delete user with confirmation
+  - Admin-only access (hidden from staff users)
+- Updated create-admin script to support creating staff users
+  - Added USER_ROLE environment variable (default: "admin")
+  - Can create admin or staff users via script
+  - Usage: `USER_ROLE=staff npm run create-admin`
+
 Bug Fixes:
 - Fixed Cart page error: "Cannot read properties of undefined (reading 'images')"
   - Added optional chaining for variant?.product?.images to prevent undefined access

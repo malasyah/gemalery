@@ -7,45 +7,47 @@ async function createAdmin() {
   const email = process.env.ADMIN_EMAIL || "admin@gemalery.com";
   const password = process.env.ADMIN_PASSWORD || "admin123";
   const name = process.env.ADMIN_NAME || "Admin";
+  const role = (process.env.USER_ROLE || "admin") as "admin" | "staff";
 
-  console.log(`Creating admin user: ${email}`);
+  console.log(`Creating ${role} user: ${email}`);
 
   try {
-    // Check if admin already exists
+    // Check if user already exists
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      if (existing.role === "admin") {
-        console.log(`Admin user already exists: ${email}`);
+      if (existing.role === role) {
+        console.log(`${role} user already exists: ${email}`);
         console.log(`To update password, please delete and recreate the user.`);
         return;
       } else {
-        // Update existing user to admin
+        // Update existing user to specified role
         const hashed = await bcrypt.hash(password, 10);
         await prisma.user.update({
           where: { id: existing.id },
-          data: { role: "admin", password: hashed, name }
+          data: { role, password: hashed, name }
         });
-        console.log(`Updated user to admin: ${email}`);
+        console.log(`Updated user to ${role}: ${email}`);
         return;
       }
     }
 
-    // Create new admin user
+    // Create new user
     const hashed = await bcrypt.hash(password, 10);
-    const admin = await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         email,
         password: hashed,
-        role: "admin",
+        role,
         name
       }
     });
 
-    console.log(`✅ Admin user created successfully!`);
+    console.log(`✅ ${role} user created successfully!`);
     console.log(`Email: ${email}`);
     console.log(`Password: ${password}`);
     console.log(`Name: ${name}`);
-    console.log(`ID: ${admin.id}`);
+    console.log(`Role: ${role}`);
+    console.log(`ID: ${user.id}`);
     console.log(`\n⚠️  Please change the default password after first login!`);
   } catch (error: any) {
     console.error("Error creating admin user:", error);
