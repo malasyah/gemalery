@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "../../lib/api.js";
 
 type User = {
@@ -18,6 +19,7 @@ type User = {
 };
 
 export function Users(): React.JSX.Element {
+  const location = useLocation();
   const [users, setUsers] = useState<User[]>([]);
   const [form, setForm] = useState({ email: "", password: "", name: "", role: "staff" as "admin" | "staff" | "customer" });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -33,9 +35,14 @@ export function Users(): React.JSX.Element {
     }
   }
 
+  // Reset form when component mounts or route changes
   useEffect(() => {
     load().catch(() => undefined);
-  }, []);
+    // Reset form when component mounts or when navigating to this page
+    setForm({ email: "", password: "", name: "", role: "staff" });
+    setEditingId(null);
+    setEditForm({ email: "", password: "", name: "", role: "staff" });
+  }, [location.pathname]);
 
   async function createUser() {
     if (!form.email.trim()) {
@@ -67,6 +74,7 @@ export function Users(): React.JSX.Element {
         body: JSON.stringify(payload),
       });
       
+      // Reset form after successful create
       setForm({ email: "", password: "", name: "", role: "staff" });
       await load();
       alert("User berhasil dibuat");
@@ -125,6 +133,7 @@ export function Users(): React.JSX.Element {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
+      // Reset edit form and exit edit mode
       setEditingId(null);
       setEditForm({ email: "", password: "", name: "", role: "staff" });
       await load();
@@ -356,6 +365,7 @@ export function Users(): React.JSX.Element {
                           </button>
                           <button
                             onClick={() => {
+                              // Reset edit form when canceling
                               setEditingId(null);
                               setEditForm({ email: "", password: "", name: "", role: "staff" });
                             }}
