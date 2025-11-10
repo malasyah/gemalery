@@ -18,9 +18,10 @@ type Category = {
 export function Categories(): React.JSX.Element {
   const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState({ name: "", description: "" });
+  const [costComponents, setCostComponents] = useState<Array<{ name: string; cost: number }>>([{ name: "", cost: 0 }]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", description: "" });
-  const [costComponents, setCostComponents] = useState<Array<{ id?: string; name: string; cost: number }>>([]);
+  const [editCostComponents, setEditCostComponents] = useState<Array<{ id?: string; name: string; cost: number }>>([{ name: "", cost: 0 }]);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
   async function load() {
@@ -92,7 +93,7 @@ export function Categories(): React.JSX.Element {
         description: category.description || "",
       });
       setEditingCategoryId(category.id);
-      setCostComponents(
+      setEditCostComponents(
         category.operationalCostComponents?.map((comp) => ({
           id: comp.id,
           name: comp.name,
@@ -122,7 +123,7 @@ export function Categories(): React.JSX.Element {
 
       // Update operational cost components
       const existingComponents = categories.find((c) => c.id === categoryId)?.operationalCostComponents || [];
-      const validComponents = costComponents.filter((comp) => comp.name.trim() && comp.cost > 0);
+      const validComponents = editCostComponents.filter((comp) => comp.name.trim() && comp.cost > 0);
 
       // Delete components that are no longer in the list
       const componentsToDelete = existingComponents.filter(
@@ -161,7 +162,7 @@ export function Categories(): React.JSX.Element {
 
       setEditingId(null);
       setEditForm({ name: "", description: "" });
-      setCostComponents([{ name: "", cost: 0 }]);
+      setEditCostComponents([{ name: "", cost: 0 }]);
       setEditingCategoryId(null);
       await load();
     } catch (e: any) {
@@ -210,7 +211,7 @@ export function Categories(): React.JSX.Element {
   function cancelEdit() {
     setEditingId(null);
     setEditForm({ name: "", description: "" });
-    setCostComponents([{ name: "", cost: 0 }]);
+    setEditCostComponents([{ name: "", cost: 0 }]);
     setEditingCategoryId(null);
   }
 
@@ -365,15 +366,15 @@ export function Categories(): React.JSX.Element {
                         <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
                           Komponen Biaya Operasional
                         </label>
-                        {costComponents.map((comp, idx) => (
+                        {editCostComponents.map((comp, idx) => (
                           <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
                             <input
                               style={{ flex: 1, padding: 8 }}
                               value={comp.name}
                               onChange={(e) => {
-                                const updated = [...costComponents];
+                                const updated = [...editCostComponents];
                                 updated[idx].name = e.target.value;
-                                setCostComponents(updated);
+                                setEditCostComponents(updated);
                               }}
                               placeholder="Keterangan biaya"
                             />
@@ -382,17 +383,17 @@ export function Categories(): React.JSX.Element {
                               style={{ width: 150, padding: 8 }}
                               value={comp.cost || ""}
                               onChange={(e) => {
-                                const updated = [...costComponents];
+                                const updated = [...editCostComponents];
                                 updated[idx].cost = Number(e.target.value) || 0;
-                                setCostComponents(updated);
+                                setEditCostComponents(updated);
                               }}
                               placeholder="Harga"
                             />
-                            {costComponents.length > 1 && (
+                            {editCostComponents.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setCostComponents(costComponents.filter((_, i) => i !== idx));
+                                  setEditCostComponents(editCostComponents.filter((_, i) => i !== idx));
                                 }}
                                 style={{
                                   padding: "8px 12px",
@@ -410,7 +411,7 @@ export function Categories(): React.JSX.Element {
                         ))}
                         <button
                           type="button"
-                          onClick={() => setCostComponents([...costComponents, { name: "", cost: 0 }])}
+                          onClick={() => setEditCostComponents([...editCostComponents, { name: "", cost: 0 }])}
                           style={{
                             padding: "6px 12px",
                             backgroundColor: "#28a745",
@@ -425,7 +426,7 @@ export function Categories(): React.JSX.Element {
                         </button>
                         <div style={{ marginTop: 8, padding: 8, backgroundColor: "#e7f3ff", borderRadius: 4, fontSize: "0.9em" }}>
                           <strong>Total Biaya Operasional:</strong> Rp{" "}
-                          {costComponents.reduce((sum, comp) => sum + (comp.cost || 0), 0).toLocaleString("id-ID")}
+                          {editCostComponents.reduce((sum, comp) => sum + (comp.cost || 0), 0).toLocaleString("id-ID")}
                         </div>
                       </div>
                     </div>
