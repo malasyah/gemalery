@@ -85,19 +85,24 @@ export function Categories(): React.JSX.Element {
   }
 
   function startEdit(category: Category) {
-    setEditingId(category.id);
-    setEditForm({
-      name: category.name,
-      description: category.description || "",
-    });
-    setEditingCategoryId(category.id);
-    setCostComponents(
-      category.operationalCostComponents?.map((comp) => ({
-        id: comp.id,
-        name: comp.name,
-        cost: Number(comp.cost),
-      })) || [{ name: "", cost: 0 }]
-    );
+    try {
+      setEditingId(category.id);
+      setEditForm({
+        name: category.name,
+        description: category.description || "",
+      });
+      setEditingCategoryId(category.id);
+      setCostComponents(
+        category.operationalCostComponents?.map((comp) => ({
+          id: comp.id,
+          name: comp.name,
+          cost: Number(comp.cost),
+        })) || [{ name: "", cost: 0 }]
+      );
+    } catch (error: any) {
+      console.error("Error starting edit category:", error);
+      alert("Terjadi kesalahan saat memuat data kategori untuk diedit. Silakan coba lagi.");
+    }
   }
 
   async function updateCategory(categoryId: string) {

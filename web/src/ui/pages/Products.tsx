@@ -695,25 +695,30 @@ export function Products(): React.JSX.Element {
   }
 
   function startEditProduct(p: Product & { variants: Variant[] }) {
-    setEditingProduct(p.id);
-    const images = p.images ? (Array.isArray(p.images) ? p.images : [p.images]) : [];
-    const categoryId = p.categoryId || "";
-    setEditPForm({ name: p.name, description: p.description || "", images, categoryId });
-    setEditingProductCategoryId(categoryId);
-    // Load variants for editing
-    const variantsForEdit = p.variants.map((v) => ({
-      id: v.id,
-      sku: v.sku,
-      barcode: v.barcode || "",
-      weight_gram: v.weight_gram,
-      stock_on_hand: v.stock_on_hand,
-      price: v.price,
-      default_purchase_price: v.default_purchase_price,
-      default_operational_cost_unit: v.default_operational_cost_unit,
-      cogs_current: v.cogs_current,
-      images: v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : [],
-    }));
-    setEditingProductVariants(variantsForEdit);
+    try {
+      setEditingProduct(p.id);
+      const images = p.images ? (Array.isArray(p.images) ? p.images : [p.images]) : [];
+      const categoryId = p.categoryId || "";
+      setEditPForm({ name: p.name, description: p.description || "", images, categoryId });
+      setEditingProductCategoryId(categoryId);
+      // Load variants for editing
+      const variantsForEdit = p.variants.map((v) => ({
+        id: v.id,
+        sku: v.sku,
+        barcode: v.barcode || "",
+        weight_gram: v.weight_gram,
+        stock_on_hand: v.stock_on_hand,
+        price: v.price,
+        default_purchase_price: v.default_purchase_price,
+        default_operational_cost_unit: v.default_operational_cost_unit,
+        cogs_current: v.cogs_current,
+        images: v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : [],
+      }));
+      setEditingProductVariants(variantsForEdit);
+    } catch (error: any) {
+      console.error("Error starting edit product:", error);
+      alert("Terjadi kesalahan saat memuat data produk untuk diedit. Silakan coba lagi.");
+    }
   }
 
   function startEditVariant(v: Variant) {
