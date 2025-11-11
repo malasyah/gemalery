@@ -229,4 +229,44 @@ customersRouter.post("/:customerId/addresses/:addressId/default", async (req, re
   res.json(updated);
 });
 
+// Get customer orders
+customersRouter.get("/:customerId/orders", async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const orders = await prisma.order.findMany({
+      where: { customerId },
+      include: {
+        items: {
+          include: {
+            productVariant: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    images: true,
+                  }
+                }
+              }
+            }
+          }
+        },
+        channel: {
+          select: {
+            name: true,
+            key: true,
+          }
+        },
+        payments: true,
+        shipments: true,
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(orders);
+  } catch (error: any) {
+    console.error("Error fetching customer orders:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch customer orders" });
+  }
+});
+
 

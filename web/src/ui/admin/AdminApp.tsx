@@ -10,6 +10,7 @@ import { Customers } from "../pages/Customers";
 import { Users } from "../pages/Users";
 import { Categories } from "../pages/Categories";
 import { Archive } from "../pages/Archive";
+import { Transactions } from "../pages/Transactions";
 
 function AdminProtectedRoute({ children }: { children: React.ReactElement }) {
   const { user, isLoading } = useAuth();
@@ -62,6 +63,7 @@ function AdminNavigation() {
     { path: "/dashboard", label: "Dashboard", icon: "📊" },
     { path: "/products", label: "Products", icon: "📦" },
     { path: "/archive", label: "Archive", icon: "📦" },
+    { path: "/transactions", label: "Transactions", icon: "💰" },
     { path: "/categories", label: "Categories", icon: "🏷️", adminOnly: true },
     { path: "/customers", label: "Customers", icon: "👥" },
     { path: "/users", label: "Users", icon: "👤", adminOnly: true },
@@ -159,6 +161,7 @@ export function AdminApp(): React.JSX.Element {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/archive" element={<Archive />} />
+            <Route path="/transactions" element={<Transactions />} />
             <Route
               path="/categories"
               element={

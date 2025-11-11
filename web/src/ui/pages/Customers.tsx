@@ -98,11 +98,52 @@ type Customer = {
   updatedAt: string;
 };
 
+type Order = {
+  id: string;
+  status: string;
+  subtotal: number;
+  discount_total: number;
+  shipping_cost: number;
+  fees_total: number;
+  createdAt: string;
+  channel?: {
+    name: string;
+    key: string;
+  } | null;
+  items: Array<{
+    id: string;
+    qty: number;
+    price: number;
+    productVariant: {
+      sku: string;
+      product: {
+        id: string;
+        name: string;
+        images?: string[] | null;
+      };
+    };
+  }>;
+  payments?: Array<{
+    id: string;
+    amount: number;
+    method: string;
+    status: string;
+  }>;
+  shipments?: Array<{
+    id: string;
+    carrier: string;
+    service: string;
+    awb?: string | null;
+  }>;
+};
+
 export function Customers(): React.JSX.Element {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [form, setForm] = useState({ name: "", phone: "", email: "", photo: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", phone: "", email: "", photo: "" });
+  const [viewingOrdersCustomerId, setViewingOrdersCustomerId] = useState<string | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
 
   async function load() {
     const list = await api<Customer[]>("/customers");
@@ -422,6 +463,12 @@ export function Customers(): React.JSX.Element {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          onClick={() => viewCustomerOrders(c.id)}
+                          style={{ padding: "6px 12px", fontSize: "0.9em", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: 4 }}
+                        >
+                          📋 View Orders
+                        </button>
                         <button onClick={() => startEdit(c)} style={{ padding: "6px 12px", fontSize: "0.9em" }}>
                           Edit
                         </button>
@@ -453,6 +500,293 @@ export function Customers(): React.JSX.Element {
           </div>
         )}
       </div>
+
+      {/* Customer Orders Modal */}
+      {viewingOrdersCustomerId && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            setViewingOrdersCustomerId(null);
+            setCustomerOrders([]);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: 24,
+              borderRadius: 8,
+              maxWidth: 900,
+              width: "90%",
+              maxHeight: "90vh",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ marginTop: 0 }}>
+                Data Transaksi Orderan - {customers.find(c => c.id === viewingOrdersCustomerId)?.name}
+              </h3>
+              <button
+                onClick={() => {
+                  setViewingOrdersCustomerId(null);
+                  setCustomerOrders([]);
+                }}
+                style={{
+                  padding: "6px 12px",
+                  backgroundColor: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                ✕ Tutup
+              </button>
+            </div>
+
+            {customerOrders.length === 0 ? (
+              <p>Tidak ada order untuk customer ini.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 16 }}>
+                {customerOrders.map((order) => {
+                  const total = order.subtotal - order.discount_total + order.shipping_cost;
+                  const productImages = order.items.map(item => {
+                    const images = item.productVariant.product.images;
+                    if (images && Array.isArray(images) && images.length > 0) {
+                      return images[0];
+                    }
+                    return null;
+                  }).filter(Boolean);
+
+                  return (
+                    <div
+                      key={order.id}
+                      style={{
+                        border: "1px solid #ddd",
+                        padding: 16,
+                        borderRadius: 8,
+                        backgroundColor: "#f9f9f9",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontWeight: "bold", fontSize: "1.1em", marginBottom: 4 }}>
+                            Order #{order.id.slice(-8).toUpperCase()}
+                          </div>
+                          <div style={{ fontSize: "0.9em", color: "#666", marginBottom: 4 }}>
+                            Tanggal: {new Date(order.createdAt).toLocaleDateString("id-ID", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                          {order.channel && (
+                            <div style={{ fontSize: "0.9em", color: "#666", marginBottom: 4 }}>
+                              Channel: {order.channel.name}
+                            </div>
+                          )}
+                          <div
+                            style={{
+                              display: "inline-block",
+                              padding: "4px 8px",
+                              borderRadius: 4,
+                              fontSize: "0.85em",
+                              backgroundColor:
+                                order.status === "completed"
+                                  ? "#d4edda"
+                                  : order.status === "paid"
+                                  ? "#d1ecf1"
+                                  : order.status === "pending"
+                                  ? "#fff3cd"
+                                  : "#f8d7da",
+                              color:
+                                order.status === "completed"
+                                  ? "#155724"
+                                  : order.status === "paid"
+                                  ? "#0c5460"
+                                  : order.status === "pending"
+                                  ? "#856404"
+                                  : "#721c24",
+                            }}
+                          >
+                            {order.status.toUpperCase()}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: "1.2em", fontWeight: "bold", color: "#28a745" }}>
+                            Rp {total.toLocaleString("id-ID")}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Order Items */}
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #ddd" }}>
+                        <strong style={{ fontSize: "0.9em" }}>Items ({order.items.length}):</strong>
+                        <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                          {order.items.map((item) => {
+                            const productImages = item.productVariant.product.images;
+                            const mainImage = productImages && Array.isArray(productImages) && productImages.length > 0
+                              ? productImages[0]
+                              : null;
+
+                            return (
+                              <div
+                                key={item.id}
+                                style={{
+                                  display: "flex",
+                                  gap: 12,
+                                  padding: 8,
+                                  backgroundColor: "white",
+                                  borderRadius: 4,
+                                }}
+                              >
+                                {mainImage ? (
+                                  <img
+                                    src={mainImage}
+                                    alt={item.productVariant.product.name}
+                                    style={{
+                                      width: 60,
+                                      height: 60,
+                                      objectFit: "cover",
+                                      borderRadius: 4,
+                                    }}
+                                  />
+                                ) : (
+                                  <div
+                                    style={{
+                                      width: 60,
+                                      height: 60,
+                                      backgroundColor: "#f0f0f0",
+                                      borderRadius: 4,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: "0.8em",
+                                      color: "#999",
+                                    }}
+                                  >
+                                    No Image
+                                  </div>
+                                )}
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontWeight: "bold" }}>
+                                    {item.productVariant.product.name}
+                                  </div>
+                                  <div style={{ fontSize: "0.85em", color: "#666", marginTop: 4 }}>
+                                    SKU: {item.productVariant.sku} | Qty: {item.qty} | Harga: Rp {Number(item.price).toLocaleString("id-ID")}
+                                  </div>
+                                  <div style={{ fontSize: "0.9em", fontWeight: "bold", marginTop: 4, color: "#28a745" }}>
+                                    Subtotal: Rp {(item.qty * Number(item.price)).toLocaleString("id-ID")}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Order Summary */}
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #ddd" }}>
+                        <div style={{ display: "grid", gap: 4, fontSize: "0.9em" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>Subtotal:</span>
+                            <span>Rp {Number(order.subtotal).toLocaleString("id-ID")}</span>
+                          </div>
+                          {order.discount_total > 0 && (
+                            <div style={{ display: "flex", justifyContent: "space-between", color: "#dc3545" }}>
+                              <span>Diskon:</span>
+                              <span>- Rp {Number(order.discount_total).toLocaleString("id-ID")}</span>
+                            </div>
+                          )}
+                          {order.shipping_cost > 0 && (
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span>Ongkir:</span>
+                              <span>Rp {Number(order.shipping_cost).toLocaleString("id-ID")}</span>
+                            </div>
+                          )}
+                          {order.fees_total > 0 && (
+                            <div style={{ display: "flex", justifyContent: "space-between", color: "#666" }}>
+                              <span>Fees:</span>
+                              <span>Rp {Number(order.fees_total).toLocaleString("id-ID")}</span>
+                            </div>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "1.1em", marginTop: 8, paddingTop: 8, borderTop: "1px solid #ddd" }}>
+                            <span>Total:</span>
+                            <span style={{ color: "#28a745" }}>Rp {total.toLocaleString("id-ID")}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Payments */}
+                      {order.payments && order.payments.length > 0 && (
+                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #ddd" }}>
+                          <strong style={{ fontSize: "0.9em" }}>Pembayaran:</strong>
+                          <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
+                            {order.payments.map((payment) => (
+                              <div
+                                key={payment.id}
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  fontSize: "0.9em",
+                                  padding: 8,
+                                  backgroundColor: "white",
+                                  borderRadius: 4,
+                                }}
+                              >
+                                <span>
+                                  {payment.method} - {payment.status}
+                                </span>
+                                <span>Rp {Number(payment.amount).toLocaleString("id-ID")}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Shipments */}
+                      {order.shipments && order.shipments.length > 0 && (
+                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #ddd" }}>
+                          <strong style={{ fontSize: "0.9em" }}>Pengiriman:</strong>
+                          <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
+                            {order.shipments.map((shipment) => (
+                              <div
+                                key={shipment.id}
+                                style={{
+                                  fontSize: "0.9em",
+                                  padding: 8,
+                                  backgroundColor: "white",
+                                  borderRadius: 4,
+                                }}
+                              >
+                                {shipment.carrier} {shipment.service}
+                                {shipment.awb && <span> - AWB: {shipment.awb}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
