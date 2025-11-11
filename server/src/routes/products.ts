@@ -155,35 +155,68 @@ productsRouter.post("/", async (req, res) => {
 
 // Public routes (must be before admin routes)
 productsRouter.get("/public", async (req, res) => {
-  const { categoryId, search } = req.query;
-  const where: any = {
-    isArchived: false // Only show non-archived products
-  };
-  
-  if (categoryId) {
-    where.categoryId = categoryId as string;
-  }
-  
-  if (search) {
-    where.OR = [
-      { name: { contains: search as string, mode: "insensitive" } },
-      { description: { contains: search as string, mode: "insensitive" } },
-      { variants: { some: { sku: { contains: search as string, mode: "insensitive" } } } }
-    ];
-  }
-  
-  const products = await prisma.product.findMany({
-    where,
-    include: {
-      category: true,
-      variants: {
-        where: { stock_on_hand: { gt: 0 } }, // Only show variants with stock
-        orderBy: { price: "asc" }
+  try {
+    const { categoryId, search } = req.query;
+    const where: any = {};
+    
+    // Only filter by isArchived if column exists (after migration is deployed)
+    // If column doesn't exist yet, this will be caught in the catch block
+    where.isArchived = false; // Only show non-archived products
+    
+    if (categoryId) {
+      where.categoryId = categoryId as string;
+    }
+    
+    if (search) {
+      where.OR = [
+        { name: { contains: search as string, mode: "insensitive" } },
+        { description: { contains: search as string, mode: "insensitive" } },
+        { variants: { some: { sku: { contains: search as string, mode: "insensitive" } } } }
+      ];
+    }
+    
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        variants: {
+          where: { stock_on_hand: { gt: 0 } }, // Only show variants with stock
+          orderBy: { price: "asc" }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(products);
+  } catch (error: any) {
+    console.error("Error fetching public products:", error);
+    // If error is about missing column, return all products (backward compatibility)
+    if (error.message && (error.message.includes("isArchived") || error.message.includes("column") || error.code === "P2021")) {
+      console.warn("isArchived column not found, returning all products. Please deploy migration: npx prisma migrate deploy");
+      const { categoryId, search } = req.query;
+      const where: any = {};
+      if (categoryId) where.categoryId = categoryId as string;
+      if (search) {
+        where.OR = [
+          { name: { contains: search as string, mode: "insensitive" } },
+          { description: { contains: search as string, mode: "insensitive" } },
+          { variants: { some: { sku: { contains: search as string, mode: "insensitive" } } } }
+        ];
       }
-    },
-    orderBy: { createdAt: "desc" }
-  });
-  res.json(products);
+      const products = await prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          variants: {
+            where: { stock_on_hand: { gt: 0 } },
+            orderBy: { price: "asc" }
+          }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+      return res.json(products);
+    }
+    res.status(500).json({ error: error.message || "Failed to fetch products" });
+  }
 });
 
 productsRouter.get("/recommended", async (_req, res) => {
@@ -208,6 +241,24 @@ productsRouter.get("/recommended", async (_req, res) => {
     res.json(filtered);
   } catch (error: any) {
     console.error("Error fetching recommended products:", error);
+    // If error is about missing column, return all products (backward compatibility)
+    if (error.message && (error.message.includes("isArchived") || error.message.includes("column") || error.code === "P2021")) {
+      console.warn("isArchived column not found, returning all products. Please deploy migration: npx prisma migrate deploy");
+      const products = await prisma.product.findMany({
+        include: {
+          category: true,
+          variants: {
+            where: { stock_on_hand: { gt: 0 } },
+            orderBy: [{ stock_on_hand: "desc" }, { price: "asc" }],
+            take: 1
+          }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 3
+      });
+      const filtered = products.filter(p => p.variants.length > 0);
+      return res.json(filtered);
+    }
     res.status(500).json({ error: error.message || "Failed to fetch recommended products" });
   }
 });
@@ -232,6 +283,24 @@ productsRouter.get("/latest", async (_req, res) => {
     res.json(filtered);
   } catch (error: any) {
     console.error("Error fetching latest products:", error);
+    // If error is about missing column, return all products (backward compatibility)
+    if (error.message && (error.message.includes("isArchived") || error.message.includes("column") || error.code === "P2021")) {
+      console.warn("isArchived column not found, returning all products. Please deploy migration: npx prisma migrate deploy");
+      const products = await prisma.product.findMany({
+        include: {
+          category: true,
+          variants: {
+            where: { stock_on_hand: { gt: 0 } },
+            orderBy: { price: "asc" },
+            take: 1
+          }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 3
+      });
+      const filtered = products.filter(p => p.variants.length > 0);
+      return res.json(filtered);
+    }
     res.status(500).json({ error: error.message || "Failed to fetch latest products" });
   }
 });
@@ -263,14 +332,15 @@ productsRouter.get("/popular", async (_req, res) => {
     // Group by product and get unique products
     const productMap = new Map();
     variants.forEach(v => {
-      // Only include non-archived products
-      if (!v.product.isArchived && !productMap.has(v.productId)) {
+      // Only include non-archived products (if column exists)
+      const isArchived = (v.product as any).isArchived ?? false;
+      if (!isArchived && !productMap.has(v.productId)) {
         productMap.set(v.productId, {
           ...v.product,
           variants: []
         });
       }
-      if (!v.product.isArchived && productMap.has(v.productId)) {
+      if (!isArchived && productMap.has(v.productId)) {
         productMap.get(v.productId).variants.push(v);
       }
     });
@@ -279,6 +349,41 @@ productsRouter.get("/popular", async (_req, res) => {
     res.json(products);
   } catch (error: any) {
     console.error("Error fetching popular products:", error);
+    // If error is about missing column, return all products (backward compatibility)
+    if (error.message && (error.message.includes("isArchived") || error.message.includes("column") || error.code === "P2021")) {
+      console.warn("isArchived column not found, returning all products. Please deploy migration: npx prisma migrate deploy");
+      // Return products without isArchived filter
+      const popularVariants = await prisma.orderItem.groupBy({
+        by: ["productVariantId"],
+        _count: { productVariantId: true },
+        orderBy: { _count: { productVariantId: "desc" } },
+        take: 3
+      });
+      if (popularVariants.length === 0) {
+        return res.json([]);
+      }
+      const variantIds = popularVariants.map(v => v.productVariantId);
+      const variants = await prisma.productVariant.findMany({
+        where: { id: { in: variantIds }, stock_on_hand: { gt: 0 } },
+        include: {
+          product: {
+            include: { category: true }
+          }
+        }
+      });
+      const productMap = new Map();
+      variants.forEach(v => {
+        if (!productMap.has(v.productId)) {
+          productMap.set(v.productId, {
+            ...v.product,
+            variants: []
+          });
+        }
+        productMap.get(v.productId).variants.push(v);
+      });
+      const products = Array.from(productMap.values());
+      return res.json(products);
+    }
     res.status(500).json({ error: error.message || "Failed to fetch popular products" });
   }
 });
@@ -311,20 +416,45 @@ productsRouter.get("/:id", async (req, res) => {
 
 // List products (admin route)
 productsRouter.get("/", async (req, res) => {
-  const { archived } = req.query;
-  const where: any = {};
-  
-  // Filter by archived status if provided
-  if (archived !== undefined) {
-    where.isArchived = archived === "true" || archived === "1";
+  try {
+    const { archived } = req.query;
+    const where: any = {};
+    
+    // Filter by archived status if provided
+    // Note: If isArchived column doesn't exist yet (migration not deployed), 
+    // this will only work after migration is deployed
+    if (archived !== undefined) {
+      where.isArchived = archived === "true" || archived === "1";
+    } else {
+      // Default: only show non-archived products if archived param not specified
+      // This ensures backward compatibility if column doesn't exist yet
+      try {
+        where.isArchived = false;
+      } catch (e) {
+        // If column doesn't exist, just ignore the filter
+        // This allows the query to work even if migration isn't deployed yet
+      }
+    }
+    
+    const products = await prisma.product.findMany({ 
+      where,
+      include: { variants: true, category: true },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(products);
+  } catch (error: any) {
+    console.error("Error fetching products:", error);
+    // If error is about missing column, return all products (backward compatibility)
+    if (error.message && error.message.includes("isArchived")) {
+      console.warn("isArchived column not found, returning all products. Please deploy migration.");
+      const products = await prisma.product.findMany({ 
+        include: { variants: true, category: true },
+        orderBy: { createdAt: "desc" }
+      });
+      return res.json(products);
+    }
+    res.status(500).json({ error: error.message || "Failed to fetch products" });
   }
-  
-  const products = await prisma.product.findMany({ 
-    where,
-    include: { variants: true, category: true },
-    orderBy: { createdAt: "desc" }
-  });
-  res.json(products);
 });
 
 // Variant routes (must be before /:productId routes to avoid conflict)
