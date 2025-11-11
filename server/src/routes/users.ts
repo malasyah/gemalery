@@ -337,7 +337,7 @@ usersRouter.delete("/:userId", requireAuth, requireRole("admin"), async (req, re
     // Handle foreign key constraint errors
     if (error.code === "P2003") {
       return res.status(400).json({ 
-        error: "Cannot delete user. User has related records (orders, customers, etc.). Please remove related records first." 
+        error: "Cannot delete user. User has related records (orders, addresses, etc.). Please remove related records first." 
       });
     }
     
