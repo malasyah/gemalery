@@ -8,7 +8,7 @@ export const posRouter = Router();
 
 const posOrderSchema = z.object({
   items: z.array(z.object({ variantId: z.string(), qty: z.number().int().positive() })).min(1),
-  customerId: z.string().optional()
+  userId: z.string().optional()
 });
 
 // Staff POS-only create offline order
@@ -19,7 +19,7 @@ posRouter.post("/orders", requireAuth, requireRole(["staff", "admin"]), async (r
       console.error("Validation error:", parsed.error);
       return res.status(400).json({ error: parsed.error.flatten() });
     }
-    const { items, customerId } = parsed.data;
+    const { items, userId } = parsed.data;
 
     // load variants
     const variantIds = items.map(i => i.variantId);
@@ -63,7 +63,7 @@ posRouter.post("/orders", requireAuth, requireRole(["staff", "admin"]), async (r
       const created = await tx.order.create({
         data: {
           channelId: channel.id,
-          customerId: customerId && customerId.trim() !== "" ? customerId : null,
+          userId: userId && userId.trim() !== "" ? userId : null,
           status: "paid",
           subtotal: subtotal,
           discount_total: 0,

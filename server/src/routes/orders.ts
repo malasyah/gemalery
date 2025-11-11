@@ -28,7 +28,7 @@ ordersRouter.patch("/:id/status", async (req, res) => {
 const importOrderSchema = z.object({
   channel: z.enum(["tokopedia", "shopee", "tiktok"]),
   externalOrderId: z.string().min(1),
-  customerId: z.string().optional(),
+  userId: z.string().optional(),
   items: z.array(z.object({ variantId: z.string(), qty: z.number().int().positive(), price: z.number().positive() })).min(1),
   subtotal: z.number().nonnegative(),
   discount_total: z.number().nonnegative().default(0),
@@ -55,7 +55,7 @@ ordersRouter.post("/import", async (req, res) => {
     const created = await tx.order.create({
       data: {
         channelId: channel.id,
-        customerId: data.customerId || null,
+        userId: data.userId || null,
         status: data.status,
         subtotal: data.subtotal,
         discount_total: data.discount_total,

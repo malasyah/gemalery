@@ -4,7 +4,6 @@ import helmet from "helmet";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import { prisma } from "./lib/prisma.js";
-import { customersRouter } from "./routes/customers.js";
 import { productsRouter } from "./routes/products.js";
 import { shippingRouter } from "./routes/shipping.js";
 import { authRouter } from "./routes/auth.js";
@@ -86,7 +85,6 @@ app.get("/health/db", async (_req, res) => {
 
 // Routes
 app.use("/users", usersRouter);
-app.use("/customers", customersRouter);
 app.use("/products", productsRouter);
 app.use("/categories", categoriesRouter);
 app.use("/contact", contactRouter);

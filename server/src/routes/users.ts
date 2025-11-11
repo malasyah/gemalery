@@ -5,23 +5,43 @@ import bcrypt from "bcryptjs";
 
 export const usersRouter = Router();
 
-// List all users (admin only)
-usersRouter.get("/", requireAuth, requireRole("admin"), async (_req, res) => {
+// List all users (admin only) with search and filter
+usersRouter.get("/", requireAuth, requireRole("admin"), async (req, res) => {
   try {
+    const { search, role } = req.query;
+    
+    const where: any = {};
+    
+    // Search by name, email, or phone
+    if (search && typeof search === "string" && search.trim()) {
+      const searchTerm = search.trim();
+      where.OR = [
+        { name: { contains: searchTerm, mode: "insensitive" } },
+        { email: { contains: searchTerm, mode: "insensitive" } },
+        { phone: { contains: searchTerm, mode: "insensitive" } }
+      ];
+    }
+    
+    // Filter by role
+    if (role && typeof role === "string" && ["admin", "staff", "customer"].includes(role)) {
+      where.role = role;
+    }
+    
     const users = await prisma.user.findMany({
+      where,
       select: {
         id: true,
         email: true,
         name: true,
+        phone: true,
+        photo: true,
         role: true,
         createdAt: true,
         updatedAt: true,
-        customer: {
+        _count: {
           select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true
+            orders: true,
+            addresses: true
           }
         }
       },
@@ -45,16 +65,15 @@ usersRouter.get("/:userId", requireAuth, requireRole("admin"), async (req, res) 
         id: true,
         email: true,
         name: true,
+        phone: true,
+        photo: true,
         role: true,
         createdAt: true,
         updatedAt: true,
-        customer: {
+        _count: {
           select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
-            photo: true
+            orders: true,
+            addresses: true
           }
         }
       }
@@ -71,9 +90,64 @@ usersRouter.get("/:userId", requireAuth, requireRole("admin"), async (req, res) 
   }
 });
 
+// Get user orders
+usersRouter.get("/:userId/orders", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const orders = await prisma.order.findMany({
+      where: { userId },
+      include: {
+        items: {
+          include: {
+            productVariant: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    images: true,
+                  }
+                }
+              }
+            }
+          }
+        },
+        channel: {
+          select: {
+            name: true,
+            key: true,
+          }
+        },
+        payments: true,
+        shipments: true,
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(orders);
+  } catch (error: any) {
+    console.error("Error fetching user orders:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch user orders" });
+  }
+});
+
+// Get user addresses
+usersRouter.get("/:userId/addresses", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const addresses = await prisma.userAddress.findMany({
+      where: { userId, is_deleted: false },
+      orderBy: [{ is_default: "desc" }, { createdAt: "asc" }]
+    });
+    res.json(addresses);
+  } catch (error: any) {
+    console.error("Error fetching user addresses:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch user addresses" });
+  }
+});
+
 // Create user (admin only)
 usersRouter.post("/", requireAuth, requireRole("admin"), async (req, res) => {
-  const { email, password, name, role } = req.body || {};
+  const { email, password, name, role, phone, photo } = req.body || {};
   
   if (!email || !email.trim()) {
     return res.status(400).json({ error: "Email is required" });
@@ -108,12 +182,16 @@ usersRouter.post("/", requireAuth, requireRole("admin"), async (req, res) => {
         email: email.trim(),
         password: hashed,
         name: name && name.trim() ? name.trim() : null,
+        phone: phone && phone.trim() ? phone.trim() : null,
+        photo: photo && photo.trim() ? photo.trim() : null,
         role: role as "admin" | "staff" | "customer"
       },
       select: {
         id: true,
         email: true,
         name: true,
+        phone: true,
+        photo: true,
         role: true,
         createdAt: true,
         updatedAt: true
@@ -135,7 +213,7 @@ usersRouter.post("/", requireAuth, requireRole("admin"), async (req, res) => {
 // Update user (admin only)
 usersRouter.patch("/:userId", requireAuth, requireRole("admin"), async (req, res) => {
   const { userId } = req.params;
-  const { email, password, name, role } = req.body || {};
+  const { email, password, name, role, phone, photo } = req.body || {};
   
   try {
     // Check if user exists
@@ -168,6 +246,14 @@ usersRouter.patch("/:userId", requireAuth, requireRole("admin"), async (req, res
       updateData.name = name && name.trim() ? name.trim() : null;
     }
     
+    if (phone !== undefined) {
+      updateData.phone = phone && phone.trim() ? phone.trim() : null;
+    }
+    
+    if (photo !== undefined) {
+      updateData.photo = photo && photo.trim() ? photo.trim() : null;
+    }
+    
     if (role !== undefined) {
       if (!["admin", "staff", "customer"].includes(role)) {
         return res.status(400).json({ error: "Invalid role. Must be admin, staff, or customer" });
@@ -194,18 +280,11 @@ usersRouter.patch("/:userId", requireAuth, requireRole("admin"), async (req, res
         id: true,
         email: true,
         name: true,
+        phone: true,
+        photo: true,
         role: true,
         createdAt: true,
-        updatedAt: true,
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
-            photo: true
-          }
-        }
+        updatedAt: true
       }
     });
     

@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../contexts/AuthContext";
 
-type Customer = {
+type User = {
   id: string;
-  name: string;
+  name?: string | null;
   phone?: string | null;
-  email?: string | null;
+  email: string;
   photo?: string | null;
+  role: "admin" | "staff" | "customer";
 };
 
 type Category = {
@@ -115,8 +116,8 @@ function fileToBase64(file: File): Promise<string> {
 
 export function POS(): React.JSX.Element {
   const { token, user } = useAuth();
-  const [customerId, setCustomerId] = useState("");
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [userId, setUserId] = useState("");
+  const [customers, setCustomers] = useState<User[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -130,7 +131,7 @@ export function POS(): React.JSX.Element {
 
   async function loadCustomers() {
     try {
-      const list = await api<Customer[]>("/customers");
+      const list = await api<User[]>("/users?role=customer");
       setCustomers(list);
     } catch (e) {
       console.error("Error loading customers:", e);
@@ -241,27 +242,45 @@ export function POS(): React.JSX.Element {
       return;
     }
 
+    if (!newCustomerForm.email.trim()) {
+      alert("Email wajib diisi");
+      return;
+    }
+
     try {
+      // Generate a temporary password
+      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+      
       const payload: any = {
+        email: newCustomerForm.email.trim(),
+        password: tempPassword,
         name: newCustomerForm.name.trim(),
+        role: "customer",
       };
 
       if (newCustomerForm.phone.trim()) payload.phone = newCustomerForm.phone.trim();
-      if (newCustomerForm.email.trim()) payload.email = newCustomerForm.email.trim();
       if (newCustomerForm.photo.trim()) payload.photo = newCustomerForm.photo.trim();
 
-      const result = await api<Customer>("/customers", {
+      const result = await api<User>("/users", {
         method: "POST",
         body: JSON.stringify(payload),
       });
 
       await loadCustomers();
-      setCustomerId(result.id);
+      setUserId(result.id);
       setShowAddCustomerModal(false);
       setNewCustomerForm({ name: "", phone: "", email: "", photo: "" });
+      alert("Customer berhasil dibuat");
     } catch (e: any) {
       console.error("Error creating customer:", e);
-      const errorMsg = e.message || "Terjadi kesalahan saat membuat customer";
+      let errorMsg = "Terjadi kesalahan saat membuat customer";
+      try {
+        const errorText = e.message || String(e);
+        const errorObj = JSON.parse(errorText);
+        errorMsg = errorObj.error || errorMsg;
+      } catch {
+        errorMsg = e.message || String(e) || errorMsg;
+      }
       alert(errorMsg);
     }
   }
@@ -294,9 +313,9 @@ export function POS(): React.JSX.Element {
         items,
       };
       
-      // Only include customerId if it's not empty
-      if (customerId && customerId.trim() !== "") {
-        payload.customerId = customerId;
+      // Only include userId if it's not empty
+      if (userId && userId.trim() !== "") {
+        payload.userId = userId;
       }
 
       console.log("Sending POS order:", payload);
@@ -310,7 +329,7 @@ export function POS(): React.JSX.Element {
       printReceipt(res);
       // Reset cart and form
       setCart([]);
-      setCustomerId("");
+      setUserId("");
       setDiscountPercent(0);
       setCashAmount(0);
       setPaymentMethod("cash");
@@ -441,14 +460,14 @@ export function POS(): React.JSX.Element {
               Customer
             </label>
             <select
-              value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
               style={{ width: "100%", padding: 6, fontSize: "0.9em" }}
             >
               <option value="">-- Pilih Customer --</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {c.name || c.email}
                 </option>
               ))}
             </select>

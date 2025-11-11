@@ -19,7 +19,7 @@ const addressSchema = z.object({
 });
 
 const checkoutSchema = z.object({
-  customerId: z.string().optional(),
+  userId: z.string().optional(),
   guest: z.object({ name: z.string().min(1), email: z.string().email().optional(), phone: z.string().optional() }).optional(),
   items: z.array(z.object({ variantId: z.string(), qty: z.number().int().positive() })).min(1),
   shipping: z.object({
@@ -40,7 +40,7 @@ function estimateJneCost(weightGram: number): { code: string; name: string; cost
 checkoutRouter.post("/", async (req, res) => {
   const parsed = checkoutSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { customerId, guest, items, shipping } = parsed.data;
+  const { userId, guest, items, shipping } = parsed.data;
 
   // Load variants
   const variantIds = items.map(i => i.variantId);
@@ -61,7 +61,7 @@ checkoutRouter.post("/", async (req, res) => {
   // Shipping address resolve + snapshot
   let addressSnapshot: any = null;
   if (shipping.addressId) {
-    const addr = await prisma.customerAddress.findFirst({ where: { id: shipping.addressId, is_deleted: false } });
+    const addr = await prisma.userAddress.findFirst({ where: { id: shipping.addressId, is_deleted: false } });
     if (!addr) return res.status(400).json({ error: "address not found" });
     addressSnapshot = addr;
   } else if (shipping.address) {
@@ -81,7 +81,7 @@ checkoutRouter.post("/", async (req, res) => {
     const created = await tx.order.create({
       data: {
         channelId: channel.id,
-        customerId: customerId || null,
+        userId: userId || null,
         status: "pending",
         subtotal,
         discount_total: 0,
