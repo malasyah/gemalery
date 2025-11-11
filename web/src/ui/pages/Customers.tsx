@@ -150,6 +150,21 @@ export function Customers(): React.JSX.Element {
     setCustomers(list);
   }
 
+  async function loadCustomerOrders(customerId: string) {
+    try {
+      const orders = await api<Order[]>(`/customers/${customerId}/orders`);
+      setCustomerOrders(orders || []);
+    } catch (e) {
+      console.error("Error loading customer orders:", e);
+      setCustomerOrders([]);
+    }
+  }
+
+  function viewCustomerOrders(customerId: string) {
+    setViewingOrdersCustomerId(customerId);
+    loadCustomerOrders(customerId);
+  }
+
   useEffect(() => {
     load().catch(() => undefined);
   }, []);
