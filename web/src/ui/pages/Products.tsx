@@ -1196,7 +1196,7 @@ export function Products(): React.JSX.Element {
                   <input
                     type="number"
                     style={{ width: "100%", padding: 6, backgroundColor: "#f5f5f5", cursor: "not-allowed" }}
-                    value={getCategoryOperationalCost(selectedCategoryId)}
+                    value={variantForm.default_purchase_price === 0 && variantForm.price === 0 ? 0 : getCategoryOperationalCost(selectedCategoryId)}
                     readOnly
                     disabled
                   />
@@ -1208,7 +1208,7 @@ export function Products(): React.JSX.Element {
                   <input
                     type="number"
                     style={{ width: "100%", padding: 6, backgroundColor: "#f5f5f5", cursor: "not-allowed" }}
-                    value={(variantForm.default_purchase_price || 0) + getCategoryOperationalCost(selectedCategoryId)}
+                    value={variantForm.default_purchase_price === 0 && variantForm.price === 0 ? 0 : (variantForm.default_purchase_price || 0) + getCategoryOperationalCost(selectedCategoryId)}
                     readOnly
                     disabled
                   />
