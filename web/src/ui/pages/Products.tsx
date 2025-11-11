@@ -1400,7 +1400,7 @@ export function Products(): React.JSX.Element {
                             }}
                             title="Edit"
                           >
-                            ✏️ Edit
+                            ✏️ 
                           </button>
                           <button
                             onClick={() => setDeleteConfirm({ productId: p.id, productName: p.name })}
@@ -1415,7 +1415,7 @@ export function Products(): React.JSX.Element {
                             }}
                             title="Delete"
                           >
-                            🗑️ Delete
+                            🗑️ 
                           </button>
                         </div>
                       </div>

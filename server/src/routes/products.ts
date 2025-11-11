@@ -57,6 +57,27 @@ productsRouter.post("/", async (req, res) => {
     skuSet.add(sku);
   }
 
+  // Check if any SKU already exists in database (case-insensitive)
+  // Since Prisma doesn't support case-insensitive queries directly, we'll query all variants
+  // and filter in JavaScript. For better performance, we could use raw SQL, but this is simpler.
+  const skuArray = variants.map((v: any) => String(v.sku).trim().toLowerCase());
+  const allVariants = await prisma.productVariant.findMany({
+    select: { sku: true }
+  });
+
+  // Check for case-insensitive matches
+  const existingSkuLower = new Set(allVariants.map(v => v.sku.toLowerCase()));
+  for (const variant of variants) {
+    const sku = String(variant.sku).trim().toLowerCase();
+    if (existingSkuLower.has(sku)) {
+      const originalSku = String(variant.sku).trim();
+      const existingVariant = allVariants.find(v => v.sku.toLowerCase() === sku);
+      return res.status(400).json({ 
+        error: `SKU "${originalSku}" sudah digunakan oleh variant lain (SKU: "${existingVariant?.sku}"). SKU harus unik di seluruh sistem (case-insensitive).` 
+      });
+    }
+  }
+
   // Calculate operational cost from category
   const operationalCost = await calculateCategoryOperationalCost(categoryId);
   
