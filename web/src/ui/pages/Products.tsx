@@ -1238,18 +1238,6 @@ export function Products(): React.JSX.Element {
                 </div>
                 <div>
                   <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
-                    Harga Jual <span style={{ color: "red" }}>*</span>
-                  </label>
-                  <input
-                    type="number"
-                    style={{ width: "100%", padding: 6 }}
-                    value={variantForm.price || ""}
-                    onChange={(e) => setVariantForm({ ...variantForm, price: Number(e.target.value) || 0 })}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", marginBottom: 4, fontSize: "0.9em" }}>
                     Biaya Operasional/Unit (Otomatis)
                   </label>
                   <input
