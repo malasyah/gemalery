@@ -45,14 +45,14 @@ export function Checkout() {
     const cart = JSON.parse(localStorage.getItem("cart") || "[]");
     setCartItems(cart);
 
-    if (user?.customer?.id) {
-      loadAddresses(user.customer.id);
+    if (user?.id) {
+      loadAddresses(user.id);
     }
   }, [user]);
 
-  async function loadAddresses(customerId: string) {
+  async function loadAddresses(userId: string) {
     try {
-      const addrs = await api<Address[]>(`/customers/${customerId}/addresses`);
+      const addrs = await api<Address[]>(`/users/${userId}/addresses`);
       setAddresses(addrs || []);
       const defaultAddr = addrs.find(a => a.is_default);
       if (defaultAddr) setSelectedAddressId(defaultAddr.id);
@@ -104,8 +104,8 @@ export function Checkout() {
         shipping: { address: shippingAddress }
       };
 
-      if (user?.customer?.id) {
-        payload.customerId = user.customer.id;
+      if (user?.id) {
+        payload.userId = user.id;
       } else {
         payload.guest = { name: newAddress.recipient_name };
       }

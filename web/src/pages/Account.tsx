@@ -40,20 +40,18 @@ export function Account() {
       navigate("/");
       return;
     }
-    if (user.customer) {
-      loadProfile();
-      loadAddresses();
-    }
+    loadProfile();
+    loadAddresses();
   }, [user, navigate]);
 
   async function loadProfile() {
-    if (!user?.customer?.id) return;
+    if (!user?.id) return;
     try {
-      const customer = await api<any>(`/customers/${user.customer.id}`);
+      // User data already has name, email, phone from /auth/me
       setProfile({
-        name: customer.name || "",
-        email: customer.email || user.email || "",
-        phone: customer.phone || "",
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
       });
     } catch (error) {
       console.error("Failed to load profile:", error);
@@ -61,9 +59,9 @@ export function Account() {
   }
 
   async function loadAddresses() {
-    if (!user?.customer?.id) return;
+    if (!user?.id) return;
     try {
-      const addrs = await api<Address[]>(`/customers/${user.customer.id}/addresses`);
+      const addrs = await api<Address[]>(`/users/${user.id}/addresses`);
       setAddresses(addrs || []);
     } catch (error) {
       console.error("Failed to load addresses:", error);
@@ -71,9 +69,9 @@ export function Account() {
   }
 
   async function updateProfile() {
-    if (!user?.customer?.id) return;
+    if (!user?.id) return;
     try {
-      await api(`/customers/${user.customer.id}`, {
+      await api(`/users/${user.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           name: profile.name,
@@ -89,13 +87,13 @@ export function Account() {
   }
 
   async function addAddress() {
-    if (!user?.customer?.id) return;
+    if (!user?.id) return;
     if (!newAddress.recipient_name || !newAddress.recipient_phone || !newAddress.address_line) {
       alert("Please fill in all required fields");
       return;
     }
     try {
-      await api(`/customers/${user.customer.id}/addresses`, {
+      await api(`/users/${user.id}/addresses`, {
         method: "POST",
         body: JSON.stringify(newAddress),
       });
@@ -117,11 +115,11 @@ export function Account() {
   }
 
   async function updateAddress(addressId: string) {
-    if (!user?.customer?.id) return;
+    if (!user?.id) return;
     const addr = addresses.find(a => a.id === addressId);
     if (!addr) return;
     try {
-      await api(`/customers/${user.customer.id}/addresses/${addressId}`, {
+      await api(`/users/${user.id}/addresses/${addressId}`, {
         method: "PATCH",
         body: JSON.stringify(newAddress),
       });
@@ -144,10 +142,10 @@ export function Account() {
   }
 
   async function deleteAddress(addressId: string) {
-    if (!user?.customer?.id) return;
+    if (!user?.id) return;
     if (!confirm("Are you sure you want to delete this address?")) return;
     try {
-      await api(`/customers/${user.customer.id}/addresses/${addressId}`, {
+      await api(`/users/${user.id}/addresses/${addressId}`, {
         method: "DELETE",
       });
       await loadAddresses();
@@ -157,9 +155,9 @@ export function Account() {
   }
 
   async function setDefaultAddress(addressId: string) {
-    if (!user?.customer?.id) return;
+    if (!user?.id) return;
     try {
-      await api(`/customers/${user.customer.id}/addresses/${addressId}/default`, {
+      await api(`/users/${user.id}/addresses/${addressId}/default`, {
         method: "POST",
       });
       await loadAddresses();

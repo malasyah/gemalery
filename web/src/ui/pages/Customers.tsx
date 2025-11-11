@@ -146,13 +146,13 @@ export function Customers(): React.JSX.Element {
   const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
 
   async function load() {
-    const list = await api<Customer[]>("/customers");
+    const list = await api<Customer[]>(`/users?role=customer`);
     setCustomers(list);
   }
 
   async function loadCustomerOrders(customerId: string) {
     try {
-      const orders = await api<Order[]>(`/customers/${customerId}/orders`);
+      const orders = await api<Order[]>(`/users/${customerId}/orders`);
       setCustomerOrders(orders || []);
     } catch (e) {
       console.error("Error loading customer orders:", e);
@@ -186,9 +186,20 @@ export function Customers(): React.JSX.Element {
       
       console.log("Creating customer with payload:", payload);
       
-      const result = await api<any>("/customers", {
+      // Create user with role customer
+      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+      const userPayload: any = {
+        email: form.email.trim() || `customer_${Date.now()}@temp.com`,
+        password: tempPassword,
+        name: form.name.trim(),
+        role: "customer",
+      };
+      if (form.phone.trim()) userPayload.phone = form.phone.trim();
+      if (form.photo.trim()) userPayload.photo = form.photo.trim();
+      
+      const result = await api<any>("/users", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(userPayload),
       });
       
       setForm({ name: "", phone: "", email: "", photo: "" });
@@ -230,7 +241,7 @@ export function Customers(): React.JSX.Element {
       if (editForm.photo.trim()) payload.photo = editForm.photo.trim();
       else payload.photo = null;
       
-      await api(`/customers/${customerId}`, {
+      await api(`/users/${customerId}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
@@ -254,7 +265,7 @@ export function Customers(): React.JSX.Element {
     if (!confirm("Yakin ingin menghapus customer ini? Alamat dan data terkait akan tetap tersimpan.")) return;
 
     try {
-      await api(`/customers/${customerId}`, { method: "DELETE" });
+      await api(`/users/${customerId}`, { method: "DELETE" });
       await load();
     } catch (e: any) {
       alert("Error: " + (e.message || String(e)));

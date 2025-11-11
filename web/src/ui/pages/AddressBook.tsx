@@ -21,7 +21,7 @@ export function AddressBook(): React.JSX.Element {
 
   async function load() {
     if (!customerId) return;
-    const data = await api<Address[]>(`/customers/${customerId}/addresses`);
+    const data = await api<Address[]>(`/users/${customerId}/addresses`);
     setAddresses(data);
   }
 
@@ -32,18 +32,18 @@ export function AddressBook(): React.JSX.Element {
 
   async function addAddress() {
     if (!customerId) return;
-    await api(`/customers/${customerId}/addresses`, { method: "POST", body: JSON.stringify(form) });
+    await api(`/users/${customerId}/addresses`, { method: "POST", body: JSON.stringify(form) });
     setForm({ recipient_name: "", recipient_phone: "", address_line: "" });
     await load();
   }
 
   async function setDefault(id: string) {
-    await api(`/customers/${customerId}/addresses/${id}/default`, { method: "POST" });
+    await api(`/users/${customerId}/addresses/${id}/default`, { method: "POST" });
     await load();
   }
 
   async function remove(id: string) {
-    await api(`/customers/${customerId}/addresses/${id}`, { method: "DELETE" });
+    await api(`/users/${customerId}/addresses/${id}`, { method: "DELETE" });
     await load();
   }
 
