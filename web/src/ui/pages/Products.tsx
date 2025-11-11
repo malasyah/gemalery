@@ -44,7 +44,7 @@ export function Products(): React.JSX.Element {
   const [editingProductCategoryId, setEditingProductCategoryId] = useState<string>("");
   const [editingProductVariants, setEditingProductVariants] = useState<VariantForm[]>([]);
   const [editVForm, setEditVForm] = useState<Partial<Variant>>({});
-  const [deleteConfirm, setDeleteConfirm] = useState<{ productId: string; productName: string } | null>(null);
+  const [archiveConfirm, setArchiveConfirm] = useState<{ productId: string; productName: string } | null>(null);
   const [variantForm, setVariantForm] = useState<VariantForm>({
     sku: "",
     barcode: "",
@@ -70,7 +70,7 @@ export function Products(): React.JSX.Element {
   });
   
   // New state for redesigned UI
-  const [activeTab, setActiveTab] = useState<"new" | "all" | "categories">("all");
+  const [activeTab, setActiveTab] = useState<"new" | "all" | "categories" | "archived">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("");
   const [showEditModal, setShowEditModal] = useState(false);
@@ -78,7 +78,14 @@ export function Products(): React.JSX.Element {
   const [editingVariantStock, setEditingVariantStock] = useState<{ variantId: string; stock: number } | null>(null);
 
   async function load() {
-    const list = await api<(Product & { variants: Variant[] })[]>("/products");
+    let url = "/products";
+    // Load archived products if on archived tab
+    if (activeTab === "archived") {
+      url = "/products?archived=true";
+    } else {
+      url = "/products?archived=false";
+    }
+    const list = await api<(Product & { variants: Variant[] })[]>(url);
     // Normalize images to array format
     const normalized = list.map(p => ({
       ...p,
@@ -103,7 +110,7 @@ export function Products(): React.JSX.Element {
   useEffect(() => { 
     load().catch(() => undefined);
     loadCategories().catch(() => undefined);
-  }, []);
+  }, [activeTab]);
 
   // Calculate operational cost from selected category
   function getCategoryOperationalCost(categoryId: string): number {
@@ -586,15 +593,45 @@ export function Products(): React.JSX.Element {
     }
   }
 
-  async function deleteProduct(productId: string) {
-    if (!deleteConfirm || deleteConfirm.productId !== productId) return;
+  async function archiveProduct(productId: string) {
+    if (!archiveConfirm || archiveConfirm.productId !== productId) return;
     
     try {
-      await api(`/products/${productId}`, { method: "DELETE" });
-      setDeleteConfirm(null);
+      const result = await api<any>(`/products/${productId}/archive`, { method: "PATCH" });
+      setArchiveConfirm(null);
+      if (result && result.message) {
+        alert(result.message);
+      }
       await load();
     } catch (e: any) {
-      alert("Error: " + (e.message || String(e)));
+      console.error("Error archiving product:", e);
+      let errorMsg = "Terjadi kesalahan saat mengarsipkan produk";
+      try {
+        const errorText = e.message || String(e);
+        const errorObj = JSON.parse(errorText);
+        errorMsg = errorObj.error || errorMsg;
+      } catch {
+        errorMsg = e.message || String(e) || errorMsg;
+      }
+      alert(errorMsg);
+    }
+  }
+
+  async function unarchiveProduct(productId: string) {
+    try {
+      await api(`/products/${productId}/unarchive`, { method: "PATCH" });
+      await load();
+    } catch (e: any) {
+      console.error("Error unarchiving product:", e);
+      let errorMsg = "Terjadi kesalahan saat mengaktifkan kembali produk";
+      try {
+        const errorText = e.message || String(e);
+        const errorObj = JSON.parse(errorText);
+        errorMsg = errorObj.error || errorMsg;
+      } catch {
+        errorMsg = e.message || String(e) || errorMsg;
+      }
+      alert(errorMsg);
     }
   }
 
@@ -795,6 +832,9 @@ export function Products(): React.JSX.Element {
   function getDisplayedProducts() {
     if (activeTab === "new") {
       return [];
+    } else if (activeTab === "archived") {
+      // Show all archived products (no additional filtering needed as load() already filters)
+      return filterProducts();
     } else if (activeTab === "categories") {
       return filterProducts();
     } else {
@@ -883,6 +923,25 @@ export function Products(): React.JSX.Element {
         >
           Kategori Produk
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("archived");
+            setSearchQuery("");
+            setSelectedCategoryFilter("");
+          }}
+          style={{
+            padding: "12px 24px",
+            border: "none",
+            background: activeTab === "archived" ? "#6c757d" : "transparent",
+            color: activeTab === "archived" ? "white" : "#666",
+            cursor: "pointer",
+            borderBottom: activeTab === "archived" ? "2px solid #6c757d" : "2px solid transparent",
+            marginBottom: "-2px",
+            fontWeight: activeTab === "archived" ? "bold" : "normal",
+          }}
+        >
+          Arsip
+        </button>
       </div>
 
       {/* Category Filter (only for categories tab) */}
@@ -913,8 +972,8 @@ export function Products(): React.JSX.Element {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
+      {/* Archive Confirmation Modal */}
+      {archiveConfirm && (
         <div
           style={{
             position: "fixed",
@@ -938,20 +997,20 @@ export function Products(): React.JSX.Element {
               width: "90%",
             }}
           >
-            <h3 style={{ marginTop: 0 }}>Konfirmasi Hapus Produk</h3>
+            <h3 style={{ marginTop: 0 }}>Konfirmasi Arsip Produk</h3>
             <p>
-              Apakah Anda yakin ingin menghapus produk <strong>"{deleteConfirm.productName}"</strong>?
+              Apakah Anda yakin ingin mengarsipkan produk <strong>"{archiveConfirm.productName}"</strong>?
             </p>
-            <p style={{ color: "#dc3545", fontSize: "0.9em" }}>
-              Peringatan: Semua variant produk ini juga akan ikut terhapus.
+            <p style={{ color: "#ff9800", fontSize: "0.9em" }}>
+              Produk yang diarsipkan tidak akan ditampilkan di halaman POS dan customer. Produk dapat diaktifkan kembali dari tab "Arsip".
             </p>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
-              <button onClick={() => setDeleteConfirm(null)}>Batal</button>
+              <button onClick={() => setArchiveConfirm(null)}>Batal</button>
               <button
-                onClick={() => deleteProduct(deleteConfirm.productId)}
-                style={{ background: "#dc3545", color: "white", padding: "8px 16px" }}
+                onClick={() => archiveProduct(archiveConfirm.productId)}
+                style={{ background: "#ff9800", color: "white", padding: "8px 16px" }}
               >
-                Ya, Hapus
+                Ya, Arsipkan
               </button>
             </div>
           </div>
@@ -1326,7 +1385,7 @@ export function Products(): React.JSX.Element {
       )}
 
       {/* Product List - New Design */}
-      {(activeTab === "all" || activeTab === "categories") && (
+      {(activeTab === "all" || activeTab === "categories" || activeTab === "archived") && (
         <div style={{ marginTop: 16 }}>
           {displayedProducts.length === 0 ? (
             <p>Tidak ada produk. {activeTab === "categories" && selectedCategoryFilter ? "Pilih kategori lain atau" : ""} Silakan buat produk baru.</p>
@@ -1402,21 +1461,39 @@ export function Products(): React.JSX.Element {
                           >
                             ✏️ 
                           </button>
-                          <button
-                            onClick={() => setDeleteConfirm({ productId: p.id, productName: p.name })}
-                            style={{
-                              padding: "6px 12px",
-                              backgroundColor: "#dc3545",
-                              color: "white",
-                              border: "none",
-                              borderRadius: 4,
-                              cursor: "pointer",
-                              fontSize: "0.9em",
-                            }}
-                            title="Delete"
-                          >
-                            🗑️ 
-                          </button>
+                          {activeTab === "archived" ? (
+                            <button
+                              onClick={() => unarchiveProduct(p.id)}
+                              style={{
+                                padding: "6px 12px",
+                                backgroundColor: "#28a745",
+                                color: "white",
+                                border: "none",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                fontSize: "0.9em",
+                              }}
+                              title="Aktifkan Kembali"
+                            >
+                              ♻️
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setArchiveConfirm({ productId: p.id, productName: p.name })}
+                              style={{
+                                padding: "6px 12px",
+                                backgroundColor: "#ff9800",
+                                color: "white",
+                                border: "none",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                fontSize: "0.9em",
+                              }}
+                              title="Arsip"
+                            >
+                              📦
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

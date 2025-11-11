@@ -156,7 +156,9 @@ productsRouter.post("/", async (req, res) => {
 // Public routes (must be before admin routes)
 productsRouter.get("/public", async (req, res) => {
   const { categoryId, search } = req.query;
-  const where: any = {};
+  const where: any = {
+    isArchived: false // Only show non-archived products
+  };
   
   if (categoryId) {
     where.categoryId = categoryId as string;
@@ -188,6 +190,7 @@ productsRouter.get("/recommended", async (_req, res) => {
   try {
     // Get 3 products with highest stock (recommendation logic)
     const products = await prisma.product.findMany({
+      where: { isArchived: false }, // Only show non-archived products
       include: {
         category: true,
         variants: {
@@ -212,6 +215,7 @@ productsRouter.get("/recommended", async (_req, res) => {
 productsRouter.get("/latest", async (_req, res) => {
   try {
     const products = await prisma.product.findMany({
+      where: { isArchived: false }, // Only show non-archived products
       include: {
         category: true,
         variants: {
@@ -259,13 +263,16 @@ productsRouter.get("/popular", async (_req, res) => {
     // Group by product and get unique products
     const productMap = new Map();
     variants.forEach(v => {
-      if (!productMap.has(v.productId)) {
+      // Only include non-archived products
+      if (!v.product.isArchived && !productMap.has(v.productId)) {
         productMap.set(v.productId, {
           ...v.product,
           variants: []
         });
       }
-      productMap.get(v.productId).variants.push(v);
+      if (!v.product.isArchived && productMap.has(v.productId)) {
+        productMap.get(v.productId).variants.push(v);
+      }
     });
     
     const products = Array.from(productMap.values());
@@ -303,8 +310,20 @@ productsRouter.get("/:id", async (req, res) => {
 });
 
 // List products (admin route)
-productsRouter.get("/", async (_req, res) => {
-  const products = await prisma.product.findMany({ include: { variants: true, category: true } });
+productsRouter.get("/", async (req, res) => {
+  const { archived } = req.query;
+  const where: any = {};
+  
+  // Filter by archived status if provided
+  if (archived !== undefined) {
+    where.isArchived = archived === "true" || archived === "1";
+  }
+  
+  const products = await prisma.product.findMany({ 
+    where,
+    include: { variants: true, category: true },
+    orderBy: { createdAt: "desc" }
+  });
   res.json(products);
 });
 
@@ -489,32 +508,92 @@ productsRouter.patch("/:productId", async (req, res) => {
   res.json(updated);
 });
 
-productsRouter.delete("/:productId", async (req, res) => {
+// Archive product (instead of delete)
+productsRouter.patch("/:productId/archive", async (req, res) => {
   const { productId } = req.params;
   
   try {
-    // Delete product with all variants in transaction
-    await prisma.$transaction(async (tx) => {
-      // First delete all variants (to avoid foreign key constraint)
-      await tx.productVariant.deleteMany({
-        where: { productId }
-      });
-      
-      // Then delete the product
-      await tx.product.delete({
-        where: { id: productId }
-      });
+    // Check if product has related data that prevents deletion
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        variants: {
+          include: {
+            _count: {
+              select: {
+                orderItems: true,
+                purchaseItems: true,
+                stockMovements: true,
+                inventoryLevels: true
+              }
+            }
+          }
+        }
+      }
     });
     
-    res.status(204).send();
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
+    // Check if any variant has related data
+    const hasRelatedData = product.variants.some(v => 
+      v._count.orderItems > 0 || 
+      v._count.purchaseItems > 0 || 
+      v._count.stockMovements > 0 || 
+      v._count.inventoryLevels > 0
+    );
+    
+    if (hasRelatedData) {
+      // Archive the product instead of deleting
+      const archived = await prisma.product.update({
+        where: { id: productId },
+        data: { isArchived: true }
+      });
+      
+      return res.json({ 
+        ...archived,
+        message: "Produk diarsipkan karena memiliki data terkait (order, purchase, stock movement, atau inventory). Produk tidak dapat dihapus secara permanen."
+      });
+    }
+    
+    // If no related data, just archive it
+    const archived = await prisma.product.update({
+      where: { id: productId },
+      data: { isArchived: true }
+    });
+    
+    res.json(archived);
   } catch (error: any) {
-    console.error("Error deleting product:", error);
+    console.error("Error archiving product:", error);
     
     if (error.code === "P2025") {
       return res.status(404).json({ error: "Product not found" });
     }
     
-    res.status(500).json({ error: error.message || "Failed to delete product" });
+    res.status(500).json({ error: error.message || "Failed to archive product" });
+  }
+});
+
+// Unarchive product
+productsRouter.patch("/:productId/unarchive", async (req, res) => {
+  const { productId } = req.params;
+  
+  try {
+    const product = await prisma.product.update({
+      where: { id: productId },
+      data: { isArchived: false }
+    });
+    
+    res.json(product);
+  } catch (error: any) {
+    console.error("Error unarchiving product:", error);
+    
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
+    res.status(500).json({ error: error.message || "Failed to unarchive product" });
   }
 });
 

@@ -161,6 +161,7 @@ model Product {
   images      Json?
   categoryId  String?
   category    ProductCategory? @relation(fields: [categoryId], references: [id])
+  isArchived  Boolean          @default(false)
   variants    ProductVariant[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
