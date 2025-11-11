@@ -26,7 +26,7 @@ export function Checkout(): React.JSX.Element {
 
   async function doCheckout() {
     const payload: any = { items, shipping: {} };
-    if (customerId) payload.customerId = customerId;
+    if (customerId) payload.userId = customerId;
     else payload.guest = { name: guestName };
     if (addressId) payload.shipping.addressId = addressId;
     else payload.shipping.address = newAddress;
