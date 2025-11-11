@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "../../lib/api";
 
 type Product = { id: string; name: string; description?: string; images?: string[] | null; categoryId?: string | null; category?: Category | null };
@@ -101,10 +102,17 @@ export function Products(): React.JSX.Element {
     }
   }
 
+  const location = useLocation();
+
   useEffect(() => { 
     load().catch(() => undefined);
     loadCategories().catch(() => undefined);
-  }, []);
+    
+    // Auto-open new product modal if route is /products/new
+    if (location.pathname === "/admin/products/new") {
+      setShowNewProductModal(true);
+    }
+  }, [location.pathname]);
 
   // Calculate operational cost from selected category
   function getCategoryOperationalCost(categoryId: string): number {

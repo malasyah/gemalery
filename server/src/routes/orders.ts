@@ -7,7 +7,47 @@ export const ordersRouter = Router();
 const statusSchema = z.object({ status: z.enum(["pending", "paid", "fulfilled", "completed", "cancelled", "refunded"]) });
 
 ordersRouter.get("/", async (_req, res) => {
-  const orders = await prisma.order.findMany({ orderBy: { createdAt: "desc" }, include: { items: true, shipments: true } });
+  const orders = await prisma.order.findMany({ 
+    orderBy: { createdAt: "desc" }, 
+    include: { 
+      items: {
+        select: {
+          id: true,
+          qty: true,
+          price: true,
+          cogs_snapshot: true,
+          productVariant: {
+            select: {
+              id: true,
+              sku: true,
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                }
+              }
+            }
+          }
+        }
+      },
+      shipments: true,
+      payments: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        }
+      },
+      channel: {
+        select: {
+          id: true,
+          name: true,
+          key: true,
+        }
+      }
+    } 
+  });
   res.json(orders);
 });
 

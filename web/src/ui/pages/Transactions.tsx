@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 
 type Transaction = {
@@ -13,6 +14,8 @@ type Transaction = {
 };
 
 export function Transactions(): React.JSX.Element {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"out" | "in">("out");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
@@ -23,6 +26,16 @@ export function Transactions(): React.JSX.Element {
     date: new Date().toISOString().split("T")[0], // Default to today
     notes: "",
   });
+
+  // Auto-set tab based on query parameter
+  useEffect(() => {
+    const type = searchParams.get("type");
+    if (type === "INCOME") {
+      setActiveTab("in");
+    } else {
+      setActiveTab("out");
+    }
+  }, [searchParams]);
 
   async function load() {
     try {

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext.js";
 import { AddressBook } from "../pages/AddressBook";
@@ -11,6 +11,7 @@ import { Users } from "../pages/Users";
 import { Categories } from "../pages/Categories";
 import { Archive } from "../pages/Archive";
 import { Transactions } from "../pages/Transactions";
+import { Reports } from "../pages/Reports";
 
 function AdminProtectedRoute({ children }: { children: React.ReactElement }) {
   const { user, isLoading } = useAuth();
@@ -50,30 +51,72 @@ function AdminOnlyRoute({ children }: { children: React.ReactElement }) {
   return children;
 }
 
-function AdminNavigation() {
+type MenuItem = {
+  path?: string;
+  label: string;
+  icon: string;
+  adminOnly?: boolean;
+  submenu?: Array<{ path: string; label: string }>;
+};
+
+function SidebarNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(["products", "transactions", "reports"]));
 
   const isActive = (path: string) => {
-    return location.pathname === `/admin${path}`;
+    return location.pathname === `/admin${path}` || location.pathname.startsWith(`/admin${path}/`);
   };
 
-  const navItems = [
+  const isParentActive = (submenu?: Array<{ path: string }>) => {
+    if (!submenu) return false;
+    return submenu.some(item => isActive(item.path));
+  };
+
+  const toggleMenu = (menuKey: string) => {
+    const newExpanded = new Set(expandedMenus);
+    if (newExpanded.has(menuKey)) {
+      newExpanded.delete(menuKey);
+    } else {
+      newExpanded.add(menuKey);
+    }
+    setExpandedMenus(newExpanded);
+  };
+
+  const menuItems: MenuItem[] = [
     { path: "/dashboard", label: "Dashboard", icon: "📊" },
-    { path: "/products", label: "Products", icon: "📦" },
-    { path: "/archive", label: "Archive", icon: "📦" },
-    { path: "/transactions", label: "Transactions", icon: "💰" },
-    { path: "/categories", label: "Categories", icon: "🏷️", adminOnly: true },
-    { path: "/customers", label: "Customers", icon: "👥" },
-    { path: "/users", label: "Users", icon: "👤", adminOnly: true },
-    { path: "/pos", label: "POS", icon: "💰" },
-    { path: "/checkout", label: "Checkout", icon: "🛒" },
-    { path: "/addresses", label: "Address Book", icon: "📍" },
+    {
+      label: "Products",
+      icon: "📦",
+      submenu: [
+        { path: "/products/new", label: "New Product" },
+        { path: "/products", label: "Product" },
+        { path: "/categories", label: "Categories" },
+        { path: "/archive", label: "Archive" },
+      ],
+    },
+    {
+      label: "Transaction",
+      icon: "💰",
+      submenu: [
+        { path: "/transactions?type=EXPENSE", label: "Transaksi Keluar" },
+        { path: "/transactions?type=INCOME", label: "Transaksi Masuk" },
+      ],
+    },
+    { path: "/users", label: "User", icon: "👤", adminOnly: true },
+    { path: "/pos", label: "POS", icon: "💳" },
+    {
+      label: "Report",
+      icon: "📈",
+      submenu: [
+        { path: "/reports/orders", label: "Daftar Orderan" },
+        { path: "/reports/products", label: "Daftar Produk" },
+      ],
+    },
   ];
 
-  // Filter nav items based on user role
-  const visibleNavItems = navItems.filter(item => {
+  const visibleMenuItems = menuItems.filter(item => {
     if (item.adminOnly && user?.role !== "admin") {
       return false;
     }
@@ -81,87 +124,163 @@ function AdminNavigation() {
   });
 
   return (
-    <nav className="bg-gray-800 text-white shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-xl font-bold">Gemalery Admin</h1>
-            </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              {visibleNavItems.map((item) => (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(`/admin${item.path}`)}
-                  className={`inline-flex items-center px-3 py-2 border-b-2 text-sm font-medium ${
-                    isActive(item.path)
-                      ? "border-blue-500 text-gray-100"
-                      : "border-transparent text-gray-300 hover:border-gray-300 hover:text-gray-100"
-                  }`}
-                >
-                  <span className="mr-2">{item.icon}</span>
-                  {item.label}
-                </button>
-              ))}
-            </div>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f9fafb" }}>
+      {/* Sidebar */}
+      <div
+        style={{
+          width: 250,
+          backgroundColor: "#1f2937",
+          color: "white",
+          padding: "20px 0",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div style={{ padding: "0 20px", marginBottom: 24 }}>
+          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>Gemalery Admin</h1>
+        </div>
+
+        <nav style={{ flex: 1, overflowY: "auto" }}>
+          {visibleMenuItems.map((item, idx) => {
+            const hasSubmenu = item.submenu && item.submenu.length > 0;
+            const menuKey = item.label.toLowerCase();
+            const isExpanded = expandedMenus.has(menuKey);
+            const parentActive = hasSubmenu && isParentActive(item.submenu);
+
+            if (hasSubmenu) {
+              return (
+                <div key={idx}>
+                  <button
+                    onClick={() => toggleMenu(menuKey)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 20px",
+                      textAlign: "left",
+                      backgroundColor: parentActive ? "#374151" : "transparent",
+                      color: "white",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      fontSize: "0.95rem",
+                    }}
+                  >
+                    <span>
+                      <span style={{ marginRight: 8 }}>{item.icon}</span>
+                      {item.label}
+                    </span>
+                    <span>{isExpanded ? "▼" : "▶"}</span>
+                  </button>
+                  {isExpanded && (
+                    <div style={{ backgroundColor: "#111827", paddingLeft: 20 }}>
+                      {item.submenu?.map((subItem, subIdx) => {
+                        const subActive = isActive(subItem.path);
+                        return (
+                          <button
+                            key={subIdx}
+                            onClick={() => navigate(`/admin${subItem.path}`)}
+                            style={{
+                              width: "100%",
+                              padding: "10px 20px",
+                              textAlign: "left",
+                              backgroundColor: subActive ? "#3b82f6" : "transparent",
+                              color: subActive ? "white" : "#d1d5db",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: "0.875rem",
+                              paddingLeft: 40,
+                            }}
+                          >
+                            {subItem.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={idx}
+                onClick={() => item.path && navigate(`/admin${item.path}`)}
+                style={{
+                  width: "100%",
+                  padding: "12px 20px",
+                  textAlign: "left",
+                  backgroundColor: isActive(item.path || "") ? "#374151" : "transparent",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: "0.95rem",
+                }}
+              >
+                <span style={{ marginRight: 8 }}>{item.icon}</span>
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div style={{ padding: "20px", borderTop: "1px solid #374151" }}>
+          <div style={{ marginBottom: 12, fontSize: "0.875rem", color: "#9ca3af" }}>
+            {user?.name || user?.email}
           </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-300">
-              {user?.name || user?.email} ({user?.role})
-            </span>
+          <div style={{ marginBottom: 12, fontSize: "0.75rem", color: "#6b7280" }}>
+            Role: {user?.role}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button
+              onClick={() => navigate("/home")}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                backgroundColor: "#3b82f6",
+                color: "white",
+                border: "none",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: "0.875rem",
+              }}
+            >
+              View Site
+            </button>
             <button
               onClick={() => {
                 logout();
                 navigate("/");
               }}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium"
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                backgroundColor: "#dc2626",
+                color: "white",
+                border: "none",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: "0.875rem",
+              }}
             >
               Logout
-            </button>
-            <button
-              onClick={() => navigate("/home")}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium"
-            >
-              View Site
             </button>
           </div>
         </div>
       </div>
-      {/* Mobile menu */}
-      <div className="sm:hidden">
-        <div className="px-2 pt-2 pb-3 space-y-1">
-          {visibleNavItems.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(`/admin${item.path}`)}
-              className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${
-                isActive(item.path)
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-300 hover:bg-gray-700 hover:text-white"
-              }`}
-            >
-              <span className="mr-2">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </nav>
-  );
-}
 
-export function AdminApp(): React.JSX.Element {
-  return (
-    <AdminProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
-        <AdminNavigation />
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      {/* Main Content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <main style={{ flex: 1, padding: 24, overflow: "auto" }}>
           <Routes>
             <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            
+            {/* Products Routes */}
             <Route path="/products" element={<Products />} />
-            <Route path="/archive" element={<Archive />} />
-            <Route path="/transactions" element={<Transactions />} />
+            <Route path="/products/new" element={<Products />} />
             <Route
               path="/categories"
               element={
@@ -170,7 +289,12 @@ export function AdminApp(): React.JSX.Element {
                 </AdminOnlyRoute>
               }
             />
-            <Route path="/customers" element={<Customers />} />
+            <Route path="/archive" element={<Archive />} />
+            
+            {/* Transactions Routes */}
+            <Route path="/transactions" element={<Transactions />} />
+            
+            {/* Users Route */}
             <Route
               path="/users"
               element={
@@ -179,13 +303,31 @@ export function AdminApp(): React.JSX.Element {
                 </AdminOnlyRoute>
               }
             />
+            
+            {/* POS Route */}
             <Route path="/pos" element={<POS />} />
+            
+            {/* Reports Routes */}
+            <Route path="/reports/orders" element={<Reports />} />
+            <Route path="/reports/products" element={<Reports />} />
+            
+            {/* Legacy routes for backward compatibility */}
+            <Route path="/customers" element={<Customers />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/addresses" element={<AddressBook />} />
+            
             <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
           </Routes>
         </main>
       </div>
+    </div>
+  );
+}
+
+export function AdminApp(): React.JSX.Element {
+  return (
+    <AdminProtectedRoute>
+      <SidebarNavigation />
     </AdminProtectedRoute>
   );
 }
