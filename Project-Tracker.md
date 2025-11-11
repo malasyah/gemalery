@@ -246,9 +246,33 @@ Bug Fixes:
     - Validation for required fields (category, purchase price, selling price)
   - Updated backend product update route to handle categoryId
 
+Product Archiving Feature:
+- Implemented product archiving instead of permanent deletion
+  - Added `isArchived` field to Product model (Boolean, default false)
+  - Created migration `20251111013441_add_product_is_archived` to add isArchived column
+  - Replaced DELETE endpoint with PATCH /products/:productId/archive endpoint
+  - Added PATCH /products/:productId/unarchive endpoint to restore archived products
+  - Products with related data (orders, purchases, stock movements, inventory) are archived with warning message
+  - Updated admin product list route to support filtering by archived status (?archived=true/false)
+  - Updated all public product routes to filter out archived products (isArchived: false)
+  - Updated POS page to filter out archived products
+  - Updated customer-facing product pages (Home, Products) to filter out archived products
+  - Added "Arsip" tab to admin Products page
+  - Replaced "Delete" button with "Archive" button (📦) for active products
+  - Added "Unarchive" button (♻️) for archived products
+  - Archive confirmation modal with product name display
+  - Products automatically filtered based on active tab (all/archived)
+- Deployed migration to production database
+  - Applied migration `20251111013441_add_product_is_archived` to Neon production database
+  - Verified database schema is up to date
+  - Added error handling for backward compatibility (graceful fallback if column doesn't exist)
+  - Created migration deployment guide (infra/DEPLOY-MIGRATION-PRODUCTION.md)
+
 Next priorities:
 - Test customer-facing UI routes (recommended, latest, popular products)
 - Verify category filtering and search functionality
 - Test contact form submission
 - Test admin UI routes and role-based access control
+- Verify product archiving functionality works correctly
+- Test archived products are hidden from POS and customer pages
 
