@@ -39,15 +39,9 @@ authRouter.get("/me", requireAuth, async (req, res) => {
         id: true,
         email: true,
         name: true,
-        role: true,
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true
-          }
-        }
+        phone: true,
+        photo: true,
+        role: true
       }
     });
     
