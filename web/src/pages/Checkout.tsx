@@ -161,7 +161,7 @@ export function Checkout() {
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Shipping Address</h2>
                 
-                {user?.customer?.id && addresses.length > 0 && (
+                {user?.id && addresses.length > 0 && (
                   <>
                     <div className="mb-4">
                       <button
@@ -217,7 +217,7 @@ export function Checkout() {
                   </>
                 )}
 
-                {useNewAddress || !user?.customer?.id ? (
+                {useNewAddress || !user?.id ? (
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">

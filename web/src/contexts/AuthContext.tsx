@@ -5,13 +5,9 @@ type User = {
   id: string;
   email: string;
   name?: string | null;
+  phone?: string | null;
+  photo?: string | null;
   role: string;
-  customer?: {
-    id: string;
-    name: string;
-    phone?: string | null;
-    email?: string | null;
-  } | null;
 };
 
 type AuthContextType = {
