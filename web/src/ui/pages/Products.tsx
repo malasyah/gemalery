@@ -70,21 +70,15 @@ export function Products(): React.JSX.Element {
   });
   
   // New state for redesigned UI
-  const [activeTab, setActiveTab] = useState<"new" | "all" | "categories" | "archived">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("");
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showNewProductModal, setShowNewProductModal] = useState(false);
   const [editingVariantPrice, setEditingVariantPrice] = useState<{ variantId: string; price: number } | null>(null);
   const [editingVariantStock, setEditingVariantStock] = useState<{ variantId: string; stock: number } | null>(null);
 
   async function load() {
-    let url = "/products";
-    // Load archived products if on archived tab
-    if (activeTab === "archived") {
-      url = "/products?archived=true";
-    } else {
-      url = "/products?archived=false";
-    }
+    const url = "/products?archived=false";
     const list = await api<(Product & { variants: Variant[] })[]>(url);
     // Normalize images to array format
     const normalized = list.map(p => ({
@@ -110,7 +104,7 @@ export function Products(): React.JSX.Element {
   useEffect(() => { 
     load().catch(() => undefined);
     loadCategories().catch(() => undefined);
-  }, [activeTab]);
+  }, []);
 
   // Calculate operational cost from selected category
   function getCategoryOperationalCost(categoryId: string): number {
@@ -485,6 +479,7 @@ export function Products(): React.JSX.Element {
         cogs_current: 0,
         images: [],
       });
+      setShowNewProductModal(false);
       await load();
     } catch (e: any) {
       console.error("Error creating product:", e);
@@ -575,6 +570,7 @@ export function Products(): React.JSX.Element {
       }
 
       setEditingProduct(null);
+      setShowEditModal(false);
       setEditPForm({ name: "", description: "", images: [], categoryId: "" });
       setEditingProductCategoryId("");
       setEditingProductVariants([]);
@@ -781,13 +777,13 @@ export function Products(): React.JSX.Element {
       filtered = filtered.filter(p => p.categoryId === selectedCategoryFilter);
     }
 
-    // Filter by search query
+    // Filter by search query (nama produk atau nama variant/SKU)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(p => {
         // Search in product name
         if (p.name.toLowerCase().includes(query)) return true;
-        // Search in variants (SKU, name)
+        // Search in variants (SKU, barcode)
         return p.variants.some(v => 
           v.sku.toLowerCase().includes(query) ||
           (v.barcode && v.barcode.toLowerCase().includes(query))
@@ -828,149 +824,75 @@ export function Products(): React.JSX.Element {
     }
   }
 
-  // Get filtered products based on active tab
-  function getDisplayedProducts() {
-    if (activeTab === "new") {
-      return [];
-    } else if (activeTab === "archived") {
-      // Show all archived products (no additional filtering needed as load() already filters)
-      return filterProducts();
-    } else if (activeTab === "categories") {
-      return filterProducts();
-    } else {
-      // All products
-      return filterProducts();
-    }
-  }
-
-  const displayedProducts = getDisplayedProducts();
+  const displayedProducts = filterProducts();
 
   return (
     <div>
       <h2>Products</h2>
       
-      {/* Search Bar */}
-      <div style={{ marginBottom: 16 }}>
+      {/* Search Bar and Add Product Icon */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
         <input
           type="text"
-          placeholder="Cari produk berdasarkan nama, varian, atau SKU..."
+          placeholder="Cari produk berdasarkan nama produk atau nama variant..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{
-            width: "100%",
+            flex: 1,
             padding: "12px 16px",
             fontSize: "1em",
             border: "1px solid #ddd",
             borderRadius: 8,
           }}
         />
-      </div>
-
-      {/* Tab Navigation */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: "2px solid #eee" }}>
         <button
-          onClick={() => {
-            setActiveTab("new");
-            setSearchQuery("");
-            setSelectedCategoryFilter("");
-          }}
+          onClick={() => setShowNewProductModal(true)}
           style={{
-            padding: "12px 24px",
+            padding: "12px 16px",
+            backgroundColor: "#28a745",
+            color: "white",
             border: "none",
-            background: activeTab === "new" ? "#007bff" : "transparent",
-            color: activeTab === "new" ? "white" : "#666",
+            borderRadius: 8,
             cursor: "pointer",
-            borderBottom: activeTab === "new" ? "2px solid #007bff" : "2px solid transparent",
-            marginBottom: "-2px",
-            fontWeight: activeTab === "new" ? "bold" : "normal",
+            fontSize: "1.2em",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: 48,
+            height: 48,
           }}
+          title="Tambah Product / New Product"
         >
-          New Product
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("all");
-            setSelectedCategoryFilter("");
-          }}
-          style={{
-            padding: "12px 24px",
-            border: "none",
-            background: activeTab === "all" ? "#007bff" : "transparent",
-            color: activeTab === "all" ? "white" : "#666",
-            cursor: "pointer",
-            borderBottom: activeTab === "all" ? "2px solid #007bff" : "2px solid transparent",
-            marginBottom: "-2px",
-            fontWeight: activeTab === "all" ? "bold" : "normal",
-          }}
-        >
-          All Products
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("categories");
-            setSearchQuery("");
-          }}
-          style={{
-            padding: "12px 24px",
-            border: "none",
-            background: activeTab === "categories" ? "#007bff" : "transparent",
-            color: activeTab === "categories" ? "white" : "#666",
-            cursor: "pointer",
-            borderBottom: activeTab === "categories" ? "2px solid #007bff" : "2px solid transparent",
-            marginBottom: "-2px",
-            fontWeight: activeTab === "categories" ? "bold" : "normal",
-          }}
-        >
-          Kategori Produk
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("archived");
-            setSearchQuery("");
-            setSelectedCategoryFilter("");
-          }}
-          style={{
-            padding: "12px 24px",
-            border: "none",
-            background: activeTab === "archived" ? "#6c757d" : "transparent",
-            color: activeTab === "archived" ? "white" : "#666",
-            cursor: "pointer",
-            borderBottom: activeTab === "archived" ? "2px solid #6c757d" : "2px solid transparent",
-            marginBottom: "-2px",
-            fontWeight: activeTab === "archived" ? "bold" : "normal",
-          }}
-        >
-          Arsip
+          ➕
         </button>
       </div>
 
-      {/* Category Filter (only for categories tab) */}
-      {activeTab === "categories" && (
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
-            Pilih Kategori:
-          </label>
-          <select
-            value={selectedCategoryFilter}
-            onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-            style={{
-              width: "100%",
-              maxWidth: 400,
-              padding: "8px 12px",
-              fontSize: "1em",
-              border: "1px solid #ddd",
-              borderRadius: 4,
-            }}
-          >
-            <option value="">-- Semua Kategori --</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* Category Filter */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
+          Filter Kategori:
+        </label>
+        <select
+          value={selectedCategoryFilter}
+          onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+          style={{
+            width: "100%",
+            maxWidth: 400,
+            padding: "8px 12px",
+            fontSize: "1em",
+            border: "1px solid #ddd",
+            borderRadius: 4,
+          }}
+        >
+          <option value="">-- Semua Kategori --</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
 
       {/* Archive Confirmation Modal */}
       {archiveConfirm && (
@@ -1017,11 +939,52 @@ export function Products(): React.JSX.Element {
         </div>
       )}
 
-      {/* Tab Content */}
-      {activeTab === "new" && (
-        <div style={{ border: "1px solid #ddd", padding: 16, marginBottom: 24, borderRadius: 8 }}>
-        <h3>Buat Produk Baru</h3>
-        <div style={{ display: "grid", gap: 12 }}>
+      {/* New Product Modal */}
+      {showNewProductModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowNewProductModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: 24,
+              borderRadius: 8,
+              maxWidth: 900,
+              width: "90%",
+              maxHeight: "90vh",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ marginTop: 0 }}>Buat Produk Baru</h3>
+              <button
+                onClick={() => setShowNewProductModal(false)}
+                style={{
+                  padding: "6px 12px",
+                  backgroundColor: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                ✕ Tutup
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
           <div>
             <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
               Nama Produk <span style={{ color: "red" }}>*</span>
@@ -1368,16 +1331,16 @@ export function Products(): React.JSX.Element {
               Simpan Produk dengan {productVariants.length} Variant
             </button>
           </div>
-        </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Product List - New Design */}
-      {(activeTab === "all" || activeTab === "categories" || activeTab === "archived") && (
-        <div style={{ marginTop: 16 }}>
-          {displayedProducts.length === 0 ? (
-            <p>Tidak ada produk. {activeTab === "categories" && selectedCategoryFilter ? "Pilih kategori lain atau" : ""} Silakan buat produk baru.</p>
-          ) : (
+      {/* Product List */}
+      <div style={{ marginTop: 16 }}>
+        {displayedProducts.length === 0 ? (
+          <p>Tidak ada produk. Silakan buat produk baru.</p>
+        ) : (
             <div style={{ display: "grid", gap: 16 }}>
               {displayedProducts.map((p) => (
                 <div key={p.id} style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8, backgroundColor: "white" }}>
@@ -1449,39 +1412,21 @@ export function Products(): React.JSX.Element {
                           >
                             ✏️ 
                           </button>
-                          {activeTab === "archived" ? (
-                            <button
-                              onClick={() => unarchiveProduct(p.id)}
-                              style={{
-                                padding: "6px 12px",
-                                backgroundColor: "#28a745",
-                                color: "white",
-                                border: "none",
-                                borderRadius: 4,
-                                cursor: "pointer",
-                                fontSize: "0.9em",
-                              }}
-                              title="Aktifkan Kembali"
-                            >
-                              ♻️
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => setArchiveConfirm({ productId: p.id, productName: p.name })}
-                              style={{
-                                padding: "6px 12px",
-                                backgroundColor: "#ff9800",
-                                color: "white",
-                                border: "none",
-                                borderRadius: 4,
-                                cursor: "pointer",
-                                fontSize: "0.9em",
-                              }}
-                              title="Arsip"
-                            >
-                              📦
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setArchiveConfirm({ productId: p.id, productName: p.name })}
+                            style={{
+                              padding: "6px 12px",
+                              backgroundColor: "#ff9800",
+                              color: "white",
+                              border: "none",
+                              borderRadius: 4,
+                              cursor: "pointer",
+                              fontSize: "0.9em",
+                            }}
+                            title="Arsip"
+                          >
+                            📦
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1666,7 +1611,6 @@ export function Products(): React.JSX.Element {
             </div>
           )}
         </div>
-      )}
 
       {/* Edit Product Modal */}
       {showEditModal && editingProduct && (() => {
@@ -2082,9 +2026,10 @@ export function Products(): React.JSX.Element {
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
                 <button
-                  onClick={() => {
-                    updateProduct(productToEdit.id);
-                    setShowEditModal(false);
+                  onClick={async () => {
+                    if (productToEdit) {
+                      await updateProduct(productToEdit.id);
+                    }
                   }}
                   disabled={editingProductVariants.length === 0}
                   style={{
