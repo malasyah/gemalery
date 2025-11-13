@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 
 type Transaction = {
@@ -14,9 +13,6 @@ type Transaction = {
 };
 
 export function Transactions(): React.JSX.Element {
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"out" | "in">("out");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -27,20 +23,9 @@ export function Transactions(): React.JSX.Element {
     notes: "",
   });
 
-  // Auto-set tab based on query parameter
-  useEffect(() => {
-    const type = searchParams.get("type");
-    if (type === "INCOME") {
-      setActiveTab("in");
-    } else {
-      setActiveTab("out");
-    }
-  }, [searchParams]);
-
   async function load() {
     try {
-      const type = activeTab === "out" ? "EXPENSE" : "INCOME";
-      const list = await api<Transaction[]>(`/transactions?type=${type}`);
+      const list = await api<Transaction[]>("/transactions");
       setTransactions(list || []);
     } catch (e) {
       console.error("Error loading transactions:", e);
@@ -50,11 +35,11 @@ export function Transactions(): React.JSX.Element {
 
   useEffect(() => {
     load();
-  }, [activeTab]);
+  }, []);
 
   function resetForm() {
     setForm({
-      type: activeTab === "out" ? "EXPENSE" : "INCOME",
+      type: "EXPENSE",
       category: "",
       amount: 0,
       date: new Date().toISOString().split("T")[0],
@@ -76,10 +61,7 @@ export function Transactions(): React.JSX.Element {
     try {
       await api("/transactions", {
         method: "POST",
-        body: JSON.stringify({
-          ...form,
-          type: activeTab === "out" ? "EXPENSE" : "INCOME",
-        }),
+        body: JSON.stringify(form),
       });
       resetForm();
       await load();
@@ -164,52 +146,25 @@ export function Transactions(): React.JSX.Element {
     <div>
       <h2>Transaksi</h2>
 
-      {/* Tab Navigation */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: "2px solid #eee" }}>
-        <button
-          onClick={() => {
-            setActiveTab("out");
-            resetForm();
-          }}
-          style={{
-            padding: "12px 24px",
-            border: "none",
-            background: activeTab === "out" ? "#dc3545" : "transparent",
-            color: activeTab === "out" ? "white" : "#666",
-            cursor: "pointer",
-            borderBottom: activeTab === "out" ? "2px solid #dc3545" : "2px solid transparent",
-            marginBottom: "-2px",
-            fontWeight: activeTab === "out" ? "bold" : "normal",
-          }}
-        >
-          Transaksi Keluar
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("in");
-            resetForm();
-          }}
-          style={{
-            padding: "12px 24px",
-            border: "none",
-            background: activeTab === "in" ? "#28a745" : "transparent",
-            color: activeTab === "in" ? "white" : "#666",
-            cursor: "pointer",
-            borderBottom: activeTab === "in" ? "2px solid #28a745" : "2px solid transparent",
-            marginBottom: "-2px",
-            fontWeight: activeTab === "in" ? "bold" : "normal",
-          }}
-        >
-          Transaksi Masuk
-        </button>
-      </div>
-
       {/* Form */}
       <div style={{ border: "1px solid #ddd", padding: 16, marginBottom: 24, borderRadius: 8, backgroundColor: "#f9f9f9" }}>
         <h3 style={{ marginTop: 0 }}>
-          {editingTransaction ? "Edit Transaksi" : `Tambah Transaksi ${activeTab === "out" ? "Keluar" : "Masuk"}`}
+          {editingTransaction ? "Edit Transaksi" : "Tambah Transaksi"}
         </h3>
         <div style={{ display: "grid", gap: 12 }}>
+          <div>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+              Tipe Transaksi <span style={{ color: "red" }}>*</span>
+            </label>
+            <select
+              style={{ width: "100%", padding: 8 }}
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value as "INCOME" | "EXPENSE" })}
+            >
+              <option value="EXPENSE">Transaksi Keluar</option>
+              <option value="INCOME">Transaksi Masuk</option>
+            </select>
+          </div>
           <div>
             <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
               Tanggal <span style={{ color: "red" }}>*</span>
@@ -262,7 +217,7 @@ export function Transactions(): React.JSX.Element {
               onClick={editingTransaction ? updateTransaction : createTransaction}
               style={{
                 padding: "10px 20px",
-                backgroundColor: activeTab === "out" ? "#dc3545" : "#28a745",
+                backgroundColor: form.type === "EXPENSE" ? "#dc3545" : "#28a745",
                 color: "white",
                 border: "none",
                 borderRadius: 4,
@@ -292,7 +247,7 @@ export function Transactions(): React.JSX.Element {
 
       {/* Transaction List */}
       <div>
-        <h3>Daftar Transaksi {activeTab === "out" ? "Keluar" : "Masuk"}</h3>
+        <h3>Daftar Transaksi</h3>
         {transactions.length === 0 ? (
           <p>Tidak ada transaksi.</p>
         ) : (

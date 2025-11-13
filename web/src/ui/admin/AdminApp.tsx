@@ -63,7 +63,7 @@ function SidebarNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(["products", "transactions", "reports"]));
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(["products", "reports"]));
 
   const isActive = (path: string) => {
     return location.pathname === `/admin${path}` || location.pathname.startsWith(`/admin${path}/`);
@@ -90,20 +90,13 @@ function SidebarNavigation() {
       label: "Products",
       icon: "📦",
       submenu: [
-        { path: "/products/new", label: "New Product" },
+        //{ path: "/products/new", label: "New Product" },
         { path: "/products", label: "Product" },
         { path: "/categories", label: "Categories" },
         { path: "/archive", label: "Archive" },
       ],
     },
-    {
-      label: "Transaction",
-      icon: "💰",
-      submenu: [
-        { path: "/transactions?type=EXPENSE", label: "Transaksi Keluar" },
-        { path: "/transactions?type=INCOME", label: "Transaksi Masuk" },
-      ],
-    },
+    { path: "/transactions", label: "Transaction", icon: "💰" },
     { path: "/users", label: "User", icon: "👤", adminOnly: true },
     { path: "/pos", label: "POS", icon: "💳" },
     {
@@ -210,8 +203,8 @@ function SidebarNavigation() {
                   width: "100%",
                   padding: "12px 20px",
                   textAlign: "left",
-                  backgroundColor: isActive(item.path || "") ? "#374151" : "transparent",
-                  color: "white",
+                  backgroundColor: isActive(item.path || "") ? "#3b82f6" : "transparent",
+                  color: isActive(item.path || "") ? "white" : "white",
                   border: "none",
                   cursor: "pointer",
                   display: "flex",

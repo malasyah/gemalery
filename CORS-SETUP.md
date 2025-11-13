@@ -5,22 +5,30 @@
 Jika Anda mendapat error CORS seperti:
 ```
 Access to fetch at 'https://YOUR-API-URL' from origin 'https://YOUR-WEB-URL' 
-has been blocked by CORS policy
+has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present
 ```
 
 ## Solusi
 
-### 1. Set CORS_ORIGIN di Railway Variables
+### 1. Set CORS_ORIGIN di Railway Variables (PENTING!)
 
-1. Buka Railway Dashboard → Service `gemalery-server` → **Variables**
+1. Buka [Railway Dashboard](https://railway.app) → Pilih service `gemalery-server` → Tab **Variables**
 2. Cari atau tambahkan variable `CORS_ORIGIN`
-3. Set value dengan format:
+3. Set value dengan format (tanpa spasi setelah koma):
    ```
    https://gemalery.vercel.app,http://localhost:5173
    ```
-   (pisahkan dengan koma, tanpa spasi setelah koma)
+   **Untuk production, gunakan:**
+   ```
+   https://gemalery.vercel.app
+   ```
 
-4. **Save** dan tunggu Railway redeploy
+4. **Save** dan tunggu Railway redeploy otomatis (biasanya 1-2 menit)
+
+5. **Verifikasi:** Setelah redeploy, cek Railway Logs untuk melihat:
+   ```
+   CORS_ORIGIN: https://gemalery.vercel.app
+   ```
 
 ### 2. Verifikasi CORS_ORIGIN
 

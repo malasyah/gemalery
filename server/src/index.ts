@@ -28,9 +28,8 @@ import { usersRouter } from "./routes/users.js";
 dotenv.config();
 
 const app = express();
-app.use(helmet());
 
-// CORS configuration
+// CORS configuration - must be before helmet
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     const corsOrigin = process.env.CORS_ORIGIN || "";
@@ -65,6 +64,12 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Configure helmet to not interfere with CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+}));
 // Increase body parser limit to handle base64 images (50MB)
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
