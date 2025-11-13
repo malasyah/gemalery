@@ -116,7 +116,7 @@ productsRouter.post("/", async (req, res) => {
           }
           
           // Calculate COGS = purchase price + operational cost
-          const cogs = purchasePrice + operationalCost;
+          const cogs = Number(purchasePrice) + Number(operationalCost);
           
           const variantData = {
             productId: newProduct.id,
@@ -586,6 +586,11 @@ productsRouter.post("/:productId/variants", async (req, res) => {
       return res.status(400).json({ error: `SKU "${skuTrimmed}" sudah ada dalam produk ini (SKU "${duplicate.sku}"). SKU tidak boleh sama meskipun huruf kapital/kecil berbeda. Setiap variant harus memiliki SKU yang unik.` });
     }
     
+    // Calculate COGS from purchase price + operational cost (recalculate to ensure accuracy)
+    const purchasePrice = Number(default_purchase_price) || 0;
+    const operationalCost = Number(default_operational_cost_unit) || 0;
+    const calculatedCogs = Number(purchasePrice) + Number(operationalCost);
+    
     const variant = await prisma.productVariant.create({
       data: {
         productId,
@@ -594,9 +599,9 @@ productsRouter.post("/:productId/variants", async (req, res) => {
         weight_gram: Number(weight_gram) || 0,
         stock_on_hand: Number(stock_on_hand) || 0,
         price: Number(price) || 0,
-        default_purchase_price: Number(default_purchase_price) || 0,
-        default_operational_cost_unit: Number(default_operational_cost_unit) || 0,
-        cogs_current: Number(cogs_current) || 0,
+        default_purchase_price: purchasePrice,
+        default_operational_cost_unit: operationalCost,
+        cogs_current: calculatedCogs,
         images: normalizedImages,
       }
     });

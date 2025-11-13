@@ -63,7 +63,7 @@ function SidebarNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(["products", "reports"]));
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(["products", "transactions", "reports"]));
 
   const isActive = (path: string) => {
     return location.pathname === `/admin${path}` || location.pathname.startsWith(`/admin${path}/`);
@@ -96,7 +96,14 @@ function SidebarNavigation() {
         { path: "/archive", label: "Archive" },
       ],
     },
-    { path: "/transactions", label: "Transaction", icon: "💰" },
+    {
+      label: "Transaction",
+      icon: "💰",
+      submenu: [
+        { path: "/transactions?type=EXPENSE", label: "Transaksi Keluar" },
+        { path: "/transactions?type=INCOME", label: "Transaksi Masuk" },
+      ],
+    },
     { path: "/users", label: "User", icon: "👤", adminOnly: true },
     { path: "/pos", label: "POS", icon: "💳" },
     {
@@ -168,7 +175,17 @@ function SidebarNavigation() {
                   {isExpanded && (
                     <div style={{ backgroundColor: "#111827", paddingLeft: 20 }}>
                       {item.submenu?.map((subItem, subIdx) => {
-                        const subActive = isActive(subItem.path);
+                        // Check if submenu path matches current location (including query params)
+                        const subPath = subItem.path.split("?")[0];
+                        const subQuery = subItem.path.includes("?") ? subItem.path.split("?")[1] : "";
+                        const currentPath = location.pathname;
+                        const currentQuery = location.search;
+                        
+                        // Check if path matches and query params match
+                        const pathMatches = currentPath === `/admin${subPath}`;
+                        const queryMatches = subQuery ? currentQuery.includes(subQuery.split("=")[1]) : !currentQuery;
+                        const subActive = pathMatches && (subQuery ? queryMatches : true);
+                        
                         return (
                           <button
                             key={subIdx}

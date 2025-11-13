@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 
 type Transaction = {
@@ -13,10 +14,12 @@ type Transaction = {
 };
 
 export function Transactions(): React.JSX.Element {
+  const [searchParams] = useSearchParams();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
+  const initialType = searchParams.get("type") || "EXPENSE";
   const [form, setForm] = useState({
-    type: "EXPENSE" as "INCOME" | "EXPENSE",
+    type: (initialType === "INCOME" ? "INCOME" : "EXPENSE") as "INCOME" | "EXPENSE",
     category: "",
     amount: 0,
     date: new Date().toISOString().split("T")[0], // Default to today
@@ -25,7 +28,9 @@ export function Transactions(): React.JSX.Element {
 
   async function load() {
     try {
-      const list = await api<Transaction[]>("/transactions");
+      const type = searchParams.get("type") || "EXPENSE";
+      const transactionType = type === "INCOME" ? "INCOME" : "EXPENSE";
+      const list = await api<Transaction[]>(`/transactions?type=${transactionType}`);
       setTransactions(list || []);
     } catch (e) {
       console.error("Error loading transactions:", e);
@@ -34,12 +39,19 @@ export function Transactions(): React.JSX.Element {
   }
 
   useEffect(() => {
+    const type = searchParams.get("type") || "EXPENSE";
+    setForm(prev => ({
+      ...prev,
+      type: (type === "INCOME" ? "INCOME" : "EXPENSE") as "INCOME" | "EXPENSE",
+    }));
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   function resetForm() {
+    const type = searchParams.get("type") || "EXPENSE";
     setForm({
-      type: "EXPENSE",
+      type: (type === "INCOME" ? "INCOME" : "EXPENSE") as "INCOME" | "EXPENSE",
       category: "",
       amount: 0,
       date: new Date().toISOString().split("T")[0],
@@ -149,22 +161,9 @@ export function Transactions(): React.JSX.Element {
       {/* Form */}
       <div style={{ border: "1px solid #ddd", padding: 16, marginBottom: 24, borderRadius: 8, backgroundColor: "#f9f9f9" }}>
         <h3 style={{ marginTop: 0 }}>
-          {editingTransaction ? "Edit Transaksi" : "Tambah Transaksi"}
+          {editingTransaction ? "Edit Transaksi" : `Tambah Transaksi ${form.type === "INCOME" ? "Masuk" : "Keluar"}`}
         </h3>
         <div style={{ display: "grid", gap: 12 }}>
-          <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
-              Tipe Transaksi <span style={{ color: "red" }}>*</span>
-            </label>
-            <select
-              style={{ width: "100%", padding: 8 }}
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value as "INCOME" | "EXPENSE" })}
-            >
-              <option value="EXPENSE">Transaksi Keluar</option>
-              <option value="INCOME">Transaksi Masuk</option>
-            </select>
-          </div>
           <div>
             <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
               Tanggal <span style={{ color: "red" }}>*</span>
@@ -247,7 +246,7 @@ export function Transactions(): React.JSX.Element {
 
       {/* Transaction List */}
       <div>
-        <h3>Daftar Transaksi</h3>
+        <h3>Daftar Transaksi {form.type === "INCOME" ? "Masuk" : "Keluar"}</h3>
         {transactions.length === 0 ? (
           <p>Tidak ada transaksi.</p>
         ) : (

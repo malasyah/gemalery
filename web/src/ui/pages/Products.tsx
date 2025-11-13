@@ -129,8 +129,8 @@ export function Products(): React.JSX.Element {
     const updated = [...productVariants];
     const variant = updated[variantIndex];
     const operationalCost = getCategoryOperationalCost(selectedCategoryId);
-    const currentPurchasePrice = purchasePrice !== undefined ? purchasePrice : variant.default_purchase_price;
-    const cogs = currentPurchasePrice + operationalCost;
+    const currentPurchasePrice = purchasePrice !== undefined ? Number(purchasePrice) : Number(variant.default_purchase_price) || 0;
+    const cogs = Number(currentPurchasePrice) + Number(operationalCost);
     
     updated[variantIndex] = {
       ...variant,
@@ -401,7 +401,8 @@ export function Products(): React.JSX.Element {
     
     // Calculate operational cost and COGS before adding
     const operationalCost = getCategoryOperationalCost(selectedCategoryId);
-    const cogs = variantForm.default_purchase_price + operationalCost;
+    const purchasePrice = Number(variantForm.default_purchase_price) || 0;
+    const cogs = Number(purchasePrice) + Number(operationalCost);
     
     setProductVariants([...productVariants, { 
       ...variantForm, 
@@ -539,9 +540,9 @@ export function Products(): React.JSX.Element {
 
       // Update or create variants
       for (const variant of editingProductVariants) {
-        const purchasePrice = variant.default_purchase_price || 0;
-        const sellingPrice = variant.price || 0;
-        const cogs = purchasePrice + operationalCost;
+        const purchasePrice = Number(variant.default_purchase_price) || 0;
+        const sellingPrice = Number(variant.price) || 0;
+        const cogs = Number(purchasePrice) + Number(operationalCost);
 
         const variantPayload = {
           sku: variant.sku,
@@ -1714,7 +1715,8 @@ export function Products(): React.JSX.Element {
                       // Update all variants' operational cost and COGS when category changes
                       const updatedVariants = editingProductVariants.map((v) => {
                         const operationalCost = getCategoryOperationalCost(newCategoryId);
-                        const cogs = (v.default_purchase_price || 0) + operationalCost;
+                        const purchasePrice = Number(v.default_purchase_price) || 0;
+                        const cogs = Number(purchasePrice) + Number(operationalCost);
                         return {
                           ...v,
                           default_operational_cost_unit: operationalCost,
@@ -1963,7 +1965,8 @@ export function Products(): React.JSX.Element {
                           return;
                         }
                         const operationalCost = getCategoryOperationalCost(editingProductCategoryId);
-                        const cogs = (variantForm.default_purchase_price || 0) + operationalCost;
+                        const purchasePrice = Number(variantForm.default_purchase_price) || 0;
+                        const cogs = Number(purchasePrice) + Number(operationalCost);
                         const newVariant: VariantForm = {
                           ...variantForm,
                           default_operational_cost_unit: operationalCost,
