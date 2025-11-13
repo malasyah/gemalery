@@ -81,14 +81,23 @@ export function Products(): React.JSX.Element {
   async function load() {
     const url = "/products?archived=false";
     const list = await api<(Product & { variants: Variant[] })[]>(url);
-    // Normalize images to array format
+    // Normalize images to array format and recalculate COGS to fix any incorrect values
     const normalized = list.map(p => ({
       ...p,
       images: p.images ? (Array.isArray(p.images) ? p.images : [p.images]) : null,
-      variants: p.variants.map(v => ({
-        ...v,
-        images: v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : null,
-      })),
+      variants: p.variants.map(v => {
+        // Recalculate COGS to fix any incorrect values from database
+        const purchasePrice = Number(v.default_purchase_price) || 0;
+        const operationalCost = Number(v.default_operational_cost_unit) || 0;
+        const recalculatedCogs = Number(purchasePrice) + Number(operationalCost);
+        return {
+          ...v,
+          default_purchase_price: purchasePrice,
+          default_operational_cost_unit: operationalCost,
+          cogs_current: recalculatedCogs, // Recalculate to fix any incorrect values
+          images: v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : null,
+        };
+      }),
     }));
     setProducts(normalized);
   }
@@ -751,19 +760,24 @@ export function Products(): React.JSX.Element {
       const categoryId = p.categoryId || "";
       setEditPForm({ name: p.name, description: p.description || "", images, categoryId });
       setEditingProductCategoryId(categoryId);
-      // Load variants for editing
-      const variantsForEdit = p.variants.map((v) => ({
-        id: v.id,
-        sku: v.sku,
-        barcode: v.barcode || "",
-        weight_gram: v.weight_gram,
-        stock_on_hand: v.stock_on_hand,
-        price: v.price,
-        default_purchase_price: v.default_purchase_price,
-        default_operational_cost_unit: v.default_operational_cost_unit,
-        cogs_current: v.cogs_current,
-        images: v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : [],
-      }));
+      // Load variants for editing - recalculate COGS to fix any incorrect values
+      const variantsForEdit = p.variants.map((v) => {
+        const purchasePrice = Number(v.default_purchase_price) || 0;
+        const operationalCost = Number(v.default_operational_cost_unit) || 0;
+        const recalculatedCogs = Number(purchasePrice) + Number(operationalCost);
+        return {
+          id: v.id,
+          sku: v.sku,
+          barcode: v.barcode || "",
+          weight_gram: v.weight_gram,
+          stock_on_hand: v.stock_on_hand,
+          price: v.price,
+          default_purchase_price: purchasePrice,
+          default_operational_cost_unit: operationalCost,
+          cogs_current: recalculatedCogs, // Recalculate to fix any incorrect values
+          images: v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : [],
+        };
+      });
       setEditingProductVariants(variantsForEdit);
     } catch (error: any) {
       console.error("Error starting edit product:", error);
@@ -774,7 +788,11 @@ export function Products(): React.JSX.Element {
   function startEditVariant(v: Variant) {
     setEditingVariant(v.id!);
     const images = v.images ? (Array.isArray(v.images) ? v.images : [v.images]) : [];
-    setEditVForm({ ...v, images });
+    // Recalculate COGS to fix any incorrect values
+    const purchasePrice = Number(v.default_purchase_price) || 0;
+    const operationalCost = Number(v.default_operational_cost_unit) || 0;
+    const recalculatedCogs = Number(purchasePrice) + Number(operationalCost);
+    setEditVForm({ ...v, images, cogs_current: recalculatedCogs });
   }
 
   // Filter and search functions
